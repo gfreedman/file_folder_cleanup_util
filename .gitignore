@@ -1,0 +1,26 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Generated files during cleanup operations
+*.tar.gz
+manifest_*.txt
+execute_*.sh
+reversal_*.sh
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Test output
+test_output/

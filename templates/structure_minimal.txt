@@ -1,0 +1,10 @@
+# Minimal File Organization Structure
+# A simple, flat hierarchy for those who prefer simplicity
+#
+# Just the essentials - add subfolders as needed.
+
+# Core categories
+Documents/
+Media/
+Projects/
+Archives/

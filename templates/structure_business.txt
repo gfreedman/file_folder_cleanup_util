@@ -1,0 +1,60 @@
+# Business/Work File Organization Structure
+# Designed for organizing work-related documents
+#
+# This template creates a hierarchy suited for professional use.
+
+# Client work
+Clients/
+Clients/Active/
+Clients/Archive/
+
+# Internal projects
+Projects/
+Projects/Active/
+Projects/Planning/
+Projects/Completed/
+
+# Administrative
+Admin/
+Admin/Contracts/
+Admin/Legal/
+Admin/HR/
+Admin/Finance/
+Admin/Insurance/
+
+# Marketing materials
+Marketing/
+Marketing/Branding/
+Marketing/Campaigns/
+Marketing/Content/
+Marketing/Analytics/
+
+# Sales
+Sales/
+Sales/Proposals/
+Sales/Contracts/
+Sales/Reports/
+
+# Operations
+Operations/
+Operations/Processes/
+Operations/Vendors/
+Operations/Reports/
+
+# Resources
+Resources/
+Resources/Templates/
+Resources/Training/
+Resources/Reference/
+
+# Media assets
+Assets/
+Assets/Images/
+Assets/Video/
+Assets/Audio/
+Assets/Logos/
+
+# Archives
+Archives/
+Archives/Old_Projects/
+Archives/Old_Clients/
