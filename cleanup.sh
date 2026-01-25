@@ -27,7 +27,8 @@ source "${SCRIPT_DIR}/src/utils.sh"
 
 VERSION="1.0.0"
 
-show_help() {
+show_help()
+{
     cat << 'EOF'
 File Folder Cleanup Utility
 ===========================
@@ -86,7 +87,8 @@ For Claude Code integration, see CLAUDE.md
 EOF
 }
 
-show_version() {
+show_version()
+{
     echo "File Folder Cleanup Utility v${VERSION}"
 }
 
@@ -103,8 +105,10 @@ OUTPUT_DIR="."
 EXECUTE_MODE="dry-run"
 EXECUTE_SCRIPT=""
 
-parse_arguments() {
-    while [[ $# -gt 0 ]]; do
+parse_arguments()
+{
+    while [[ $# -gt 0 ]]
+    do
         case "$1" in
             --sources)
                 SOURCES="$2"
@@ -159,10 +163,13 @@ parse_arguments() {
 # SECTION: VALIDATION
 # ============================================================================
 
-validate_inputs() {
+validate_inputs()
+{
     # For analyze phase, only sources are required
-    if [[ "$PHASE" == "analyze" ]]; then
-        if [[ -z "$SOURCES" ]]; then
+    if [[ "$PHASE" == "analyze" ]]
+    then
+        if [[ -z "$SOURCES" ]]
+        then
             log_error "Source directories required. Use --sources dir1,dir2"
             exit 1
         fi
@@ -170,8 +177,10 @@ validate_inputs() {
     fi
 
     # For execute phase with script, only script is required
-    if [[ "$PHASE" == "execute" && -n "$EXECUTE_SCRIPT" ]]; then
-        if [[ ! -f "$EXECUTE_SCRIPT" ]]; then
+    if [[ "$PHASE" == "execute" && -n "$EXECUTE_SCRIPT" ]]
+    then
+        if [[ ! -f "$EXECUTE_SCRIPT" ]]
+        then
             log_error "Execute script not found: $EXECUTE_SCRIPT"
             exit 1
         fi
@@ -179,12 +188,15 @@ validate_inputs() {
     fi
 
     # For full workflow or generate phase, both sources and target required
-    if [[ "$PHASE" == "all" || "$PHASE" == "generate" ]]; then
-        if [[ -z "$SOURCES" ]]; then
+    if [[ "$PHASE" == "all" || "$PHASE" == "generate" ]]
+    then
+        if [[ -z "$SOURCES" ]]
+        then
             log_error "Source directories required. Use --sources dir1,dir2"
             exit 1
         fi
-        if [[ -z "$TARGET" ]]; then
+        if [[ -z "$TARGET" ]]
+        then
             log_error "Target directory required. Use --target dir"
             exit 1
         fi
@@ -195,7 +207,8 @@ validate_inputs() {
 # SECTION: PHASE RUNNERS
 # ============================================================================
 
-run_analyze() {
+run_analyze()
+{
     log_header "Running Phase 1: Analyze"
 
     # Convert comma-separated sources to space-separated for the script
@@ -205,18 +218,21 @@ run_analyze() {
     bash "${SCRIPT_DIR}/src/analyze.sh" "${sources_array[@]}"
 }
 
-run_propose() {
+run_propose()
+{
     log_header "Running Phase 2: Propose Structure"
 
     local template_arg=""
-    if [[ -n "$TEMPLATE" ]]; then
+    if [[ -n "$TEMPLATE" ]]
+    then
         template_arg="--template $TEMPLATE"
     fi
 
     bash "${SCRIPT_DIR}/src/propose.sh" "$TARGET" $template_arg
 }
 
-run_generate() {
+run_generate()
+{
     log_header "Running Phase 3: Generate Plan"
 
     bash "${SCRIPT_DIR}/src/generate_plan.sh" \
@@ -225,10 +241,12 @@ run_generate() {
         --output "$OUTPUT_DIR"
 }
 
-run_execute() {
+run_execute()
+{
     log_header "Running Phase 4: Execute"
 
-    if [[ -n "$EXECUTE_SCRIPT" ]]; then
+    if [[ -n "$EXECUTE_SCRIPT" ]]
+    then
         # Run specific script
         bash "${SCRIPT_DIR}/src/execute.sh" "$EXECUTE_SCRIPT" --$EXECUTE_MODE
     else
@@ -236,7 +254,8 @@ run_execute() {
         local latest_script
         latest_script=$(ls -t "${OUTPUT_DIR}"/execute_*.sh 2>/dev/null | head -1)
 
-        if [[ -z "$latest_script" ]]; then
+        if [[ -z "$latest_script" ]]
+        then
             log_error "No execute script found in $OUTPUT_DIR"
             log_info "Run --phase generate first, or specify --script <path>"
             exit 1
@@ -251,7 +270,8 @@ run_execute() {
 # SECTION: MAIN WORKFLOW
 # ============================================================================
 
-run_full_workflow() {
+run_full_workflow()
+{
     echo ""
     echo "╔════════════════════════════════════════════════════════════════╗"
     echo "║           FILE FOLDER CLEANUP UTILITY v${VERSION}                ║"
@@ -271,7 +291,8 @@ run_full_workflow() {
 
     echo ""
     read -p "Continue to structure proposal? [Y/n]: " continue_propose
-    if [[ "$continue_propose" == "n" || "$continue_propose" == "N" ]]; then
+    if [[ "$continue_propose" == "n" || "$continue_propose" == "N" ]]
+    then
         log_info "Stopped after analysis. Run with --phase propose to continue."
         exit 0
     fi
@@ -281,7 +302,8 @@ run_full_workflow() {
 
     echo ""
     read -p "Continue to generate migration plan? [Y/n]: " continue_generate
-    if [[ "$continue_generate" == "n" || "$continue_generate" == "N" ]]; then
+    if [[ "$continue_generate" == "n" || "$continue_generate" == "N" ]]
+    then
         log_info "Stopped after proposal. Run with --phase generate to continue."
         exit 0
     fi
@@ -291,7 +313,8 @@ run_full_workflow() {
 
     echo ""
     read -p "Continue to execute (dry-run first)? [Y/n]: " continue_execute
-    if [[ "$continue_execute" == "n" || "$continue_execute" == "N" ]]; then
+    if [[ "$continue_execute" == "n" || "$continue_execute" == "N" ]]
+    then
         log_info "Stopped after generation. Run with --phase execute to continue."
         exit 0
     fi
@@ -302,7 +325,8 @@ run_full_workflow() {
 
     echo ""
     read -p "Execute for real? [y/N]: " do_execute
-    if [[ "$do_execute" == "y" || "$do_execute" == "Y" ]]; then
+    if [[ "$do_execute" == "y" || "$do_execute" == "Y" ]]
+    then
         EXECUTE_MODE="execute"
         run_execute
     else
@@ -314,7 +338,8 @@ run_full_workflow() {
 # SECTION: MAIN ENTRY POINT
 # ============================================================================
 
-main() {
+main()
+{
     # Parse command line arguments
     parse_arguments "$@"
 

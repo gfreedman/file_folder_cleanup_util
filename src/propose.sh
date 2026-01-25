@@ -35,11 +35,13 @@ TEMPLATES_DIR="${SCRIPT_DIR}/../templates"
 # ARGS:     $1 = template name (without extension)
 # OUTPUT:   Prints template content to stdout
 # ----------------------------------------------------------------------------
-load_template() {
+load_template()
+{
     local template_name="$1"
     local template_file="${TEMPLATES_DIR}/structure_${template_name}.txt"
 
-    if [[ ! -f "$template_file" ]]; then
+    if [[ ! -f "$template_file" ]]
+    then
         log_error "Template not found: $template_name"
         log_info "Available templates:"
         list_templates
@@ -53,10 +55,13 @@ load_template() {
 # FUNCTION: list_templates
 # PURPOSE:  List all available structure templates
 # ----------------------------------------------------------------------------
-list_templates() {
+list_templates()
+{
     echo "Available templates:"
-    for template in "${TEMPLATES_DIR}"/structure_*.txt; do
-        if [[ -f "$template" ]]; then
+    for template in "${TEMPLATES_DIR}"/structure_*.txt
+    do
+        if [[ -f "$template" ]]
+        then
             local name
             name=$(basename "$template" .txt | sed 's/structure_//')
             echo "  - $name"
@@ -75,7 +80,8 @@ list_templates() {
 # ARGS:     $1 = analysis export file path
 # OUTPUT:   Prints suggested structure based on file types
 # ----------------------------------------------------------------------------
-analyze_file_types() {
+analyze_file_types()
+{
     local analysis_file="$1"
 
     log_info "Analyzing file types to suggest structure..."
@@ -84,8 +90,10 @@ analyze_file_types() {
     declare -A ext_counts
 
     # Read the analysis file and count extensions
-    while IFS='|' read -r type data; do
-        if [[ "$type" == "FILE" ]]; then
+    while IFS='|' read -r type data
+    do
+        if [[ "$type" == "FILE" ]]
+        then
             # Extract file extension (lowercase)
             local ext
             ext=$(echo "${data##*.}" | tr '[:upper:]' '[:lower:]')
@@ -102,7 +110,8 @@ analyze_file_types() {
     local has_archives=0
     local has_data=0
 
-    for ext in "${!ext_counts[@]}"; do
+    for ext in "${!ext_counts[@]}"
+    do
         case "$ext" in
             pdf|doc|docx|txt|rtf|pages|odt|xls|xlsx|ppt|pptx)
                 has_documents=1 ;;
@@ -126,45 +135,53 @@ analyze_file_types() {
     echo "# Modify as needed before proceeding"
     echo ""
 
-    if [[ $has_documents -eq 1 ]]; then
+    if [[ $has_documents -eq 1 ]]
+    then
         echo "Documents/"
         echo "Documents/Personal/"
         echo "Documents/Professional/"
         echo "Documents/Financial/"
     fi
 
-    if [[ $has_images -eq 1 ]]; then
+    if [[ $has_images -eq 1 ]]
+    then
         echo "Media/"
         echo "Media/Images/"
         echo "Media/Images/Photos/"
         echo "Media/Images/Screenshots/"
     fi
 
-    if [[ $has_audio -eq 1 ]]; then
+    if [[ $has_audio -eq 1 ]]
+    then
         echo "Media/Audio/"
     fi
 
-    if [[ $has_video -eq 1 ]]; then
+    if [[ $has_video -eq 1 ]]
+    then
         echo "Media/Video/"
     fi
 
-    if [[ $has_code -eq 1 ]]; then
+    if [[ $has_code -eq 1 ]]
+    then
         echo "Projects/"
         echo "Projects/Code/"
     fi
 
-    if [[ $has_archives -eq 1 ]]; then
+    if [[ $has_archives -eq 1 ]]
+    then
         echo "Archives/"
         echo "Archives/Software/"
     fi
 
-    if [[ $has_data -eq 1 ]]; then
+    if [[ $has_data -eq 1 ]]
+    then
         echo "Archives/Data/"
     fi
 
     echo ""
     echo "# File type summary:"
-    for ext in "${!ext_counts[@]}"; do
+    for ext in "${!ext_counts[@]}"
+    do
         echo "# .$ext: ${ext_counts[$ext]} files"
     done | sort -t':' -k2 -nr | head -20
 }
@@ -180,7 +197,8 @@ analyze_file_types() {
 # NOTE:     This function is designed to work with Claude Code, which can
 #           gather this information conversationally
 # ----------------------------------------------------------------------------
-get_custom_structure() {
+get_custom_structure()
+{
     log_info "Define your custom folder structure"
     echo ""
     echo "Enter folder paths, one per line."
@@ -189,9 +207,11 @@ get_custom_structure() {
     echo ""
 
     local structure=""
-    while true; do
+    while true
+    do
         read -r -p "Folder: " folder
-        if [[ -z "$folder" ]]; then
+        if [[ -z "$folder" ]]
+        then
             break
         fi
         # Ensure folder ends with /
@@ -212,23 +232,27 @@ get_custom_structure() {
 # ARGS:     $1 = structure definition (newline-separated folder paths)
 # RETURNS:  0 if valid, 1 if invalid
 # ----------------------------------------------------------------------------
-validate_structure() {
+validate_structure()
+{
     local structure="$1"
 
     # Check that we have at least one folder
-    if [[ -z "$structure" ]]; then
+    if [[ -z "$structure" ]]
+    then
         log_error "Structure is empty"
         return 1
     fi
 
     # Check for invalid characters
-    if echo "$structure" | grep -qE '[<>:"|?*]'; then
+    if echo "$structure" | grep -qE '[<>:"|?*]'
+    then
         log_error "Structure contains invalid characters"
         return 1
     fi
 
     # Check that paths don't start with /
-    if echo "$structure" | grep -qE '^/'; then
+    if echo "$structure" | grep -qE '^/'
+    then
         log_warn "Paths should be relative, not absolute"
     fi
 
@@ -245,21 +269,24 @@ validate_structure() {
 # PURPOSE:  Display a structure in a tree-like format
 # ARGS:     $1 = structure definition (newline-separated folder paths)
 # ----------------------------------------------------------------------------
-display_structure() {
+display_structure()
+{
     local structure="$1"
 
     echo -e "${BOLD}Proposed Folder Structure:${NC}"
     echo ""
 
     # Convert flat list to tree display
-    echo "$structure" | grep -v '^#' | grep -v '^$' | sort | while read -r path; do
+    echo "$structure" | grep -v '^#' | grep -v '^$' | sort | while read -r path
+    do
         # Count depth by counting slashes
         local depth
         depth=$(echo "$path" | tr -cd '/' | wc -c)
 
         # Create indentation
         local indent=""
-        for ((i=1; i<depth; i++)); do
+        for ((i=1; i<depth; i++))
+        do
             indent="${indent}    "
         done
 
@@ -268,7 +295,8 @@ display_structure() {
         name=$(echo "$path" | sed 's|/$||' | rev | cut -d'/' -f1 | rev)
 
         # Print with tree-like formatting
-        if [[ $depth -eq 1 ]]; then
+        if [[ $depth -eq 1 ]]
+        then
             echo "├── $name/"
         else
             echo "${indent}├── $name/"
@@ -289,7 +317,8 @@ display_structure() {
 #           $2 = target directory
 #           $3 = structure definition
 # ----------------------------------------------------------------------------
-export_structure() {
+export_structure()
+{
     local output_file="$1"
     local target_dir="$2"
     local structure="$3"
@@ -303,7 +332,8 @@ export_structure() {
         echo "TARGET_DIR|$target_dir"
         echo ""
         echo "# Folders to create (relative to target)"
-        echo "$structure" | grep -v '^#' | grep -v '^$' | while read -r path; do
+        echo "$structure" | grep -v '^#' | grep -v '^$' | while read -r path
+        do
             echo "FOLDER|$path"
         done
     } > "$output_file"
@@ -315,7 +345,8 @@ export_structure() {
 # SECTION: MAIN EXECUTION
 # ============================================================================
 
-main() {
+main()
+{
     log_header "PHASE 2: PROPOSE STRUCTURE"
 
     local target_dir=""
@@ -324,7 +355,8 @@ main() {
     local analysis_file=""
 
     # Parse command line arguments
-    while [[ $# -gt 0 ]]; do
+    while [[ $# -gt 0 ]]
+    do
         case "$1" in
             --template)
                 mode="template"
@@ -359,7 +391,8 @@ main() {
     done
 
     # Validate target directory is specified
-    if [[ -z "$target_dir" ]]; then
+    if [[ -z "$target_dir" ]]
+    then
         log_error "Usage: $0 <target_dir> [--template <name>] [--auto] [--custom]"
         log_error ""
         log_error "Options:"
@@ -379,14 +412,15 @@ main() {
     case "$mode" in
         template)
             log_info "Loading template: $template_name"
-            structure=$(load_template "$template_name")
-            if [[ $? -ne 0 ]]; then
+            if ! structure=$(load_template "$template_name")
+            then
                 exit 1
             fi
             ;;
 
         auto)
-            if [[ -z "$analysis_file" ]]; then
+            if [[ -z "$analysis_file" ]]
+            then
                 log_error "Auto mode requires --analysis <file>"
                 exit 1
             fi
@@ -413,7 +447,8 @@ main() {
                     structure=$(load_template "$template_name")
                     ;;
                 2)
-                    if [[ -z "$analysis_file" ]]; then
+                    if [[ -z "$analysis_file" ]]
+                    then
                         log_warn "No analysis file provided. Run analyze.sh first for best results."
                         # Provide a basic structure
                         structure="Documents/
@@ -435,7 +470,8 @@ Archives/"
     esac
 
     # Validate the structure
-    if ! validate_structure "$structure"; then
+    if ! validate_structure "$structure"
+    then
         exit 1
     fi
 
@@ -443,7 +479,8 @@ Archives/"
     display_structure "$structure"
 
     # Export for next phase
-    if [[ -n "$OUTPUT_DIR" ]]; then
+    if [[ -n "${OUTPUT_DIR:-}" ]]
+    then
         export_structure "${OUTPUT_DIR}/structure_$(get_timestamp).txt" "$target_dir" "$structure"
     fi
 

@@ -25,14 +25,16 @@ source "${SCRIPT_DIR}/utils.sh"
 # ARGS:     $1 = expected backup file path
 # RETURNS:  0 if backup exists, 1 if not
 # ----------------------------------------------------------------------------
-verify_backup_exists() {
+verify_backup_exists()
+{
     local backup_pattern="$1"
 
     # Look for backup files matching the pattern
     local backup_files
     backup_files=$(ls ${backup_pattern}*.tar.gz 2>/dev/null | head -1)
 
-    if [[ -z "$backup_files" ]]; then
+    if [[ -z "$backup_files" ]]
+    then
         log_warn "No backup file found matching: ${backup_pattern}*.tar.gz"
         return 1
     fi
@@ -47,10 +49,12 @@ verify_backup_exists() {
 # ARGS:     $1 = manifest file path
 # RETURNS:  0 if exists, 1 if not
 # ----------------------------------------------------------------------------
-verify_manifest_exists() {
+verify_manifest_exists()
+{
     local manifest_file="$1"
 
-    if [[ ! -f "$manifest_file" ]]; then
+    if [[ ! -f "$manifest_file" ]]
+    then
         log_error "Manifest not found: $manifest_file"
         return 1
     fi
@@ -70,7 +74,8 @@ verify_manifest_exists() {
 # PURPOSE:  Check that files were moved correctly
 # ARGS:     $1 = manifest file path
 # ----------------------------------------------------------------------------
-verify_execution() {
+verify_execution()
+{
     local manifest_file="$1"
 
     log_info "Verifying execution..."
@@ -79,13 +84,15 @@ verify_execution() {
     local found=0
     local missing=0
 
-    while IFS='|' read -r status source dest notes; do
+    while IFS='|' read -r status source dest notes
+    do
         [[ "$status" != "PLANNED" ]] && continue
         [[ -z "$dest" ]] && continue
 
         expected=$((expected + 1))
 
-        if [[ -f "$dest" ]]; then
+        if [[ -f "$dest" ]]
+        then
             found=$((found + 1))
         else
             missing=$((missing + 1))
@@ -99,7 +106,8 @@ verify_execution() {
     echo "  Found:    $found files"
     echo "  Missing:  $missing files"
 
-    if [[ $missing -eq 0 ]]; then
+    if [[ $missing -eq 0 ]]
+    then
         log_success "All files moved successfully!"
         return 0
     else
@@ -117,7 +125,8 @@ verify_execution() {
 # PURPOSE:  Remove empty directories from source locations
 # ARGS:     $1 = manifest file path
 # ----------------------------------------------------------------------------
-cleanup_empty_directories() {
+cleanup_empty_directories()
+{
     local manifest_file="$1"
 
     log_info "Cleaning up empty directories..."
@@ -126,8 +135,10 @@ cleanup_empty_directories() {
     local source_dirs
     source_dirs=$(grep '^SOURCE_DIRS|' "$manifest_file" | cut -d'|' -f2)
 
-    for dir in $source_dirs; do
-        if [[ -d "$dir" ]]; then
+    for dir in $source_dirs
+    do
+        if [[ -d "$dir" ]]
+        then
             # Remove empty directories recursively
             find "$dir" -type d -empty -delete 2>/dev/null
             log_info "Cleaned up: $dir"
@@ -141,7 +152,8 @@ cleanup_empty_directories() {
 # SECTION: MAIN EXECUTION
 # ============================================================================
 
-main() {
+main()
+{
     log_header "PHASE 4: EXECUTE MIGRATION"
 
     local execute_script=""
@@ -150,7 +162,8 @@ main() {
     local skip_backup_check=0
 
     # Parse arguments
-    while [[ $# -gt 0 ]]; do
+    while [[ $# -gt 0 ]]
+    do
         case "$1" in
             --dry-run)
                 mode="dry-run"
@@ -180,24 +193,28 @@ main() {
     done
 
     # Validate execute script
-    if [[ -z "$execute_script" ]]; then
+    if [[ -z "$execute_script" ]]
+    then
         log_error "Usage: $0 <execute_script.sh> [--dry-run|--execute]"
         exit 1
     fi
 
-    if [[ ! -f "$execute_script" ]]; then
+    if [[ ! -f "$execute_script" ]]
+    then
         log_error "Execute script not found: $execute_script"
         exit 1
     fi
 
     # Infer manifest file if not provided
-    if [[ -z "$manifest_file" ]]; then
+    if [[ -z "$manifest_file" ]]
+    then
         # Try to find manifest with same timestamp
         local base_name
         base_name=$(basename "$execute_script" .sh | sed 's/execute_//')
-        manifest_file="$(dirname "$execute_script")/manifest_${base_name#execute_}.txt"
+        manifest_file="$(dirname "$execute_script")/manifest_${base_name}.txt"
 
-        if [[ ! -f "$manifest_file" ]]; then
+        if [[ ! -f "$manifest_file" ]]
+        then
             log_warn "Could not find manifest file. Skipping verification."
             manifest_file=""
         fi
@@ -209,17 +226,21 @@ main() {
     echo ""
 
     # Pre-flight checks
-    if [[ "$mode" == "execute" ]]; then
+    if [[ "$mode" == "execute" ]]
+    then
         log_info "Running pre-flight checks..."
 
         # Check backup exists (unless skipped)
-        if [[ $skip_backup_check -eq 0 ]]; then
+        if [[ $skip_backup_check -eq 0 ]]
+        then
             local backup_pattern
             backup_pattern=$(dirname "$execute_script")/backup_
-            if ! verify_backup_exists "$backup_pattern"; then
+            if ! verify_backup_exists "$backup_pattern"
+            then
                 echo ""
                 read -p "No backup found. Continue anyway? [y/N]: " confirm
-                if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+                if [[ "$confirm" != "y" && "$confirm" != "Y" ]]
+                then
                     log_info "Aborted. Create a backup first."
                     exit 0
                 fi
@@ -227,7 +248,8 @@ main() {
         fi
 
         # Verify manifest
-        if [[ -n "$manifest_file" ]]; then
+        if [[ -n "$manifest_file" ]]
+        then
             verify_manifest_exists "$manifest_file"
         fi
 
@@ -238,7 +260,8 @@ main() {
     log_info "Running execute script..."
     echo ""
 
-    if [[ "$mode" == "dry-run" ]]; then
+    if [[ "$mode" == "dry-run" ]]
+    then
         bash "$execute_script"
     else
         bash "$execute_script" --execute
@@ -247,19 +270,23 @@ main() {
     local exit_code=$?
 
     # Post-flight actions (only if actually executed)
-    if [[ "$mode" == "execute" && $exit_code -eq 0 ]]; then
+    if [[ "$mode" == "execute" && $exit_code -eq 0 ]]
+    then
         echo ""
 
         # Verify execution
-        if [[ -n "$manifest_file" ]]; then
+        if [[ -n "$manifest_file" ]]
+        then
             verify_execution "$manifest_file"
         fi
 
         # Cleanup empty directories
-        if [[ -n "$manifest_file" ]]; then
+        if [[ -n "$manifest_file" ]]
+        then
             echo ""
             read -p "Clean up empty source directories? [y/N]: " cleanup
-            if [[ "$cleanup" == "y" || "$cleanup" == "Y" ]]; then
+            if [[ "$cleanup" == "y" || "$cleanup" == "Y" ]]
+            then
                 cleanup_empty_directories "$manifest_file"
             fi
         fi
@@ -267,7 +294,8 @@ main() {
 
     log_header "EXECUTION COMPLETE"
 
-    if [[ "$mode" == "dry-run" ]]; then
+    if [[ "$mode" == "dry-run" ]]
+    then
         echo "This was a dry run. No files were moved."
         echo ""
         echo "To execute for real:"

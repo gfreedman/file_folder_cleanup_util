@@ -13,6 +13,8 @@
 #              common utilities (find, stat, md5, etc.)
 # ============================================================================
 
+set -u  # Exit on unset variable reference
+
 # ============================================================================
 # SECTION: COLOR DEFINITIONS
 # PURPOSE: Define ANSI color codes for terminal output
@@ -21,7 +23,8 @@
 # ============================================================================
 
 # Check if terminal supports colors (not redirected to file)
-if [[ -t 1 ]]; then
+if [[ -t 1 ]]
+then
     RED='\033[0;31m'      # Error messages
     GREEN='\033[0;32m'    # Success messages
     YELLOW='\033[1;33m'   # Warning messages
@@ -70,7 +73,8 @@ OUTPUT_DIR="${CLEANUP_OUTPUT_DIR:-.}"
 # ARGS:     $1 = message to display
 # EXAMPLE:  log_info "Processing folder: Documents"
 # ----------------------------------------------------------------------------
-log_info() {
+log_info()
+{
     echo -e "${BLUE}[INFO]${NC} $1"
 }
 
@@ -80,7 +84,8 @@ log_info() {
 # ARGS:     $1 = message to display
 # EXAMPLE:  log_success "File moved successfully"
 # ----------------------------------------------------------------------------
-log_success() {
+log_success()
+{
     echo -e "${GREEN}[OK]${NC} $1"
 }
 
@@ -90,7 +95,8 @@ log_success() {
 # ARGS:     $1 = message to display
 # EXAMPLE:  log_warn "Duplicate file found, will keep newer version"
 # ----------------------------------------------------------------------------
-log_warn() {
+log_warn()
+{
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
@@ -100,7 +106,8 @@ log_warn() {
 # ARGS:     $1 = message to display
 # EXAMPLE:  log_error "Source file does not exist"
 # ----------------------------------------------------------------------------
-log_error() {
+log_error()
+{
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
@@ -110,7 +117,8 @@ log_error() {
 # ARGS:     $1 = header text
 # EXAMPLE:  log_header "Phase 1: Analysis"
 # ----------------------------------------------------------------------------
-log_header() {
+log_header()
+{
     echo ""
     echo -e "${BOLD}=============================================="
     echo -e "$1"
@@ -124,7 +132,8 @@ log_header() {
 # ARGS:     $1 = log file path, $2 = message
 # EXAMPLE:  log_to_file "$MANIFEST_FILE" "MOVED | /old/path | /new/path"
 # ----------------------------------------------------------------------------
-log_to_file() {
+log_to_file()
+{
     local log_file="$1"
     local message="$2"
     echo "$(date '+%Y-%m-%d %H:%M:%S') | $message" >> "$log_file"
@@ -142,17 +151,20 @@ log_to_file() {
 # RETURNS:  0 if valid directory, 1 if not
 # EXAMPLE:  if validate_directory "$source_dir"; then ...
 # ----------------------------------------------------------------------------
-validate_directory() {
+validate_directory()
+{
     local dir_path="$1"
 
     # Check if path exists
-    if [[ ! -e "$dir_path" ]]; then
+    if [[ ! -e "$dir_path" ]]
+    then
         log_error "Path does not exist: $dir_path"
         return 1
     fi
 
     # Check if it's a directory (not a file)
-    if [[ ! -d "$dir_path" ]]; then
+    if [[ ! -d "$dir_path" ]]
+    then
         log_error "Path is not a directory: $dir_path"
         return 1
     fi
@@ -167,7 +179,8 @@ validate_directory() {
 # RETURNS:  0 if safe, 1 if system directory
 # EXAMPLE:  if validate_not_system_dir "$target"; then ...
 # ----------------------------------------------------------------------------
-validate_not_system_dir() {
+validate_not_system_dir()
+{
     local dir_path="$1"
 
     # Resolve to absolute path
@@ -189,8 +202,10 @@ validate_not_system_dir() {
     )
 
     # Check if the path matches any protected directory
-    for protected in "${protected_dirs[@]}"; do
-        if [[ "$abs_path" == "$protected" || "$abs_path" == "$protected/"* ]]; then
+    for protected in "${protected_dirs[@]}"
+    do
+        if [[ "$abs_path" == "$protected" || "$abs_path" == "$protected/"* ]]
+        then
             log_error "Cannot operate on system directory: $abs_path"
             return 1
         fi
@@ -212,7 +227,8 @@ validate_not_system_dir() {
 # NOTE:     Uses macOS 'stat' syntax (different from Linux)
 # EXAMPLE:  size=$(get_file_size "/path/to/file")
 # ----------------------------------------------------------------------------
-get_file_size() {
+get_file_size()
+{
     local file_path="$1"
 
     # macOS stat uses -f "%z" for size (Linux uses -c "%s")
@@ -227,7 +243,8 @@ get_file_size() {
 # NOTE:     Uses macOS 'md5' command (Linux uses 'md5sum')
 # EXAMPLE:  hash=$(get_file_md5 "/path/to/file")
 # ----------------------------------------------------------------------------
-get_file_md5() {
+get_file_md5()
+{
     local file_path="$1"
 
     # macOS md5 outputs: MD5 (filename) = hash
@@ -242,7 +259,8 @@ get_file_md5() {
 # OUTPUT:   Prints formatted size string
 # EXAMPLE:  format_bytes 1048576  # outputs "1.0 MB"
 # ----------------------------------------------------------------------------
-format_bytes() {
+format_bytes()
+{
     local bytes="$1"
 
     # Define thresholds
@@ -251,12 +269,15 @@ format_bytes() {
     local gb=$((1024 * 1024 * 1024))
 
     # Choose appropriate unit
-    if [[ $bytes -ge $gb ]]; then
+    if [[ $bytes -ge $gb ]]
+    then
         # Use awk for floating point division (bash only does integers)
         awk "BEGIN {printf \"%.1f GB\", $bytes / $gb}"
-    elif [[ $bytes -ge $mb ]]; then
+    elif [[ $bytes -ge $mb ]]
+    then
         awk "BEGIN {printf \"%.1f MB\", $bytes / $mb}"
-    elif [[ $bytes -ge $kb ]]; then
+    elif [[ $bytes -ge $kb ]]
+    then
         awk "BEGIN {printf \"%.1f KB\", $bytes / $kb}"
     else
         echo "${bytes} bytes"
@@ -278,7 +299,8 @@ format_bytes() {
 # NOTE:     Creates destination directory if it doesn't exist
 #           Respects DRY_RUN mode
 # ----------------------------------------------------------------------------
-safe_move() {
+safe_move()
+{
     local source_path="$1"
     local dest_path="$2"
     local log_file="${3:-}"
@@ -288,20 +310,23 @@ safe_move() {
     dest_dir=$(dirname "$dest_path")
 
     # Validate source exists
-    if [[ ! -e "$source_path" ]]; then
+    if [[ ! -e "$source_path" ]]
+    then
         log_warn "Source does not exist: $source_path"
         return 1
     fi
 
     # Check if destination already exists
-    if [[ -e "$dest_path" ]]; then
+    if [[ -e "$dest_path" ]]
+    then
         log_warn "Destination exists, skipping: $dest_path"
         [[ -n "$log_file" ]] && log_to_file "$log_file" "SKIPPED | $source_path | $dest_path | Destination exists"
         return 1
     fi
 
     # In dry-run mode, just report what would happen
-    if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]]
+    then
         echo "[DRY RUN] Would move: $(basename "$source_path")"
         echo "          From: $source_path"
         echo "          To:   $dest_path"
@@ -312,7 +337,8 @@ safe_move() {
     mkdir -p "$dest_dir"
 
     # Perform the move
-    if mv "$source_path" "$dest_path"; then
+    if mv "$source_path" "$dest_path"
+    then
         log_success "Moved: $(basename "$source_path")"
         [[ -n "$log_file" ]] && log_to_file "$log_file" "MOVED | $source_path | $dest_path"
         return 0
@@ -331,19 +357,22 @@ safe_move() {
 #           $3 = log file path (optional)
 # RETURNS:  0 on success, 1 on failure
 # ----------------------------------------------------------------------------
-safe_move_dir() {
+safe_move_dir()
+{
     local source_path="$1"
     local dest_path="$2"
     local log_file="${3:-}"
 
     # Validate source is a directory
-    if [[ ! -d "$source_path" ]]; then
+    if [[ ! -d "$source_path" ]]
+    then
         log_warn "Source directory does not exist: $source_path"
         return 1
     fi
 
     # In dry-run mode, just report what would happen
-    if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]]
+    then
         echo "[DRY RUN] Would move directory: $(basename "$source_path")"
         echo "          From: $source_path"
         echo "          To:   $dest_path"
@@ -354,7 +383,8 @@ safe_move_dir() {
     mkdir -p "$(dirname "$dest_path")"
 
     # Perform the move
-    if mv "$source_path" "$dest_path"; then
+    if mv "$source_path" "$dest_path"
+    then
         log_success "Moved directory: $(basename "$source_path")"
         [[ -n "$log_file" ]] && log_to_file "$log_file" "MOVED_DIR | $source_path | $dest_path"
         return 0
@@ -377,13 +407,16 @@ safe_move_dir() {
 # NOTE:     Only removes empty directories, never files
 #           Respects DRY_RUN mode
 # ----------------------------------------------------------------------------
-remove_empty_dirs() {
+remove_empty_dirs()
+{
     local root_dir="$1"
 
-    if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]]
+    then
         echo "[DRY RUN] Would clean up empty directories in: $root_dir"
         # Show what would be removed
-        find "$root_dir" -type d -empty 2>/dev/null | while read -r dir; do
+        find "$root_dir" -type d -empty 2>/dev/null | while read -r dir
+        do
             echo "          Would remove: $dir"
         done
         return 0
@@ -392,10 +425,13 @@ remove_empty_dirs() {
     # Find and remove empty directories
     # We run this multiple times because removing a directory might make its parent empty
     local removed=1
-    while [[ $removed -eq 1 ]]; do
+    while [[ $removed -eq 1 ]]
+    do
         removed=0
-        while IFS= read -r -d '' dir; do
-            if rmdir "$dir" 2>/dev/null; then
+        while IFS= read -r -d '' dir
+        do
+            if rmdir "$dir" 2>/dev/null
+            then
                 log_info "Removed empty directory: $dir"
                 removed=1
             fi
@@ -416,14 +452,16 @@ remove_empty_dirs() {
 # OUTPUT:   Creates backup file, prints path to stdout
 # NOTE:     Excludes .DS_Store and other system files
 # ----------------------------------------------------------------------------
-create_backup() {
+create_backup()
+{
     local backup_name="$1"
     shift  # Remove first argument, rest are directories
     local dirs=("$@")
 
     local backup_file="${OUTPUT_DIR}/${backup_name}.tar.gz"
 
-    if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]]
+    then
         echo "[DRY RUN] Would create backup: $backup_file"
         echo "          Including directories: ${dirs[*]}"
         return 0
@@ -437,8 +475,8 @@ create_backup() {
         --exclude='.DS_Store' \
         --exclude='.localized' \
         --exclude='._*' \
-        "${dirs[@]}" 2>/dev/null; then
-
+        "${dirs[@]}" 2>/dev/null
+    then
         local backup_size
         backup_size=$(format_bytes "$(get_file_size "$backup_file")")
         log_success "Backup created: $backup_file ($backup_size)"
@@ -463,12 +501,15 @@ create_backup() {
 # RETURNS:  0 if found, 1 if not found
 # EXAMPLE:  if array_contains "apple" "${fruits[@]}"; then ...
 # ----------------------------------------------------------------------------
-array_contains() {
+array_contains()
+{
     local search="$1"
     shift
     local element
-    for element in "$@"; do
-        if [[ "$element" == "$search" ]]; then
+    for element in "$@"
+    do
+        if [[ "$element" == "$search" ]]
+        then
             return 0
         fi
     done
@@ -485,7 +526,8 @@ array_contains() {
 # PURPOSE:  Get current timestamp in a filename-safe format
 # OUTPUT:   Prints timestamp string (e.g., "2026-01-16_14-30-45")
 # ----------------------------------------------------------------------------
-get_timestamp() {
+get_timestamp()
+{
     date '+%Y-%m-%d_%H-%M-%S'
 }
 
@@ -494,7 +536,8 @@ get_timestamp() {
 # PURPOSE:  Get current date in ISO format
 # OUTPUT:   Prints date string (e.g., "2026-01-16")
 # ----------------------------------------------------------------------------
-get_date() {
+get_date()
+{
     date '+%Y-%m-%d'
 }
 

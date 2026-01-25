@@ -45,7 +45,8 @@ declare -a MAPPING_RULES=()
 # PURPOSE:  Load default file-to-folder mapping rules
 # NOTE:     These can be overridden by a custom mapping file
 # ----------------------------------------------------------------------------
-load_default_mappings() {
+load_default_mappings()
+{
     # Default mappings based on file extensions
     # Format: "pattern|destination"
     # Pattern can be: extension (*.pdf), folder name, or filename pattern
@@ -114,10 +115,12 @@ load_default_mappings() {
 # PURPOSE:  Load custom mapping rules from a file
 # ARGS:     $1 = mapping file path
 # ----------------------------------------------------------------------------
-load_mapping_file() {
+load_mapping_file()
+{
     local mapping_file="$1"
 
-    if [[ ! -f "$mapping_file" ]]; then
+    if [[ ! -f "$mapping_file" ]]
+    then
         log_warn "Mapping file not found: $mapping_file"
         log_info "Using default mappings"
         load_default_mappings
@@ -130,7 +133,8 @@ load_mapping_file() {
     MAPPING_RULES=()
 
     # Read rules from file
-    while IFS='|' read -r pattern destination; do
+    while IFS='|' read -r pattern destination
+    do
         # Skip comments and empty lines
         [[ "$pattern" =~ ^# ]] && continue
         [[ -z "$pattern" ]] && continue
@@ -148,7 +152,8 @@ load_mapping_file() {
 #           $2 = target root directory
 # OUTPUT:   Prints full destination path
 # ----------------------------------------------------------------------------
-get_destination() {
+get_destination()
+{
     local source_path="$1"
     local target_root="$2"
 
@@ -159,20 +164,24 @@ get_destination() {
     extension=$(echo "${filename##*.}" | tr '[:upper:]' '[:lower:]')
 
     # Try to match against rules
-    for rule in "${MAPPING_RULES[@]}"; do
+    for rule in "${MAPPING_RULES[@]}"
+    do
         local pattern="${rule%%|*}"
         local destination="${rule##*|}"
 
         # Check if pattern matches
         # Handle *.ext patterns
-        if [[ "$pattern" == "*."* ]]; then
+        if [[ "$pattern" == "*."* ]]
+        then
             local rule_ext="${pattern#*.}"
-            if [[ "$extension" == "$rule_ext" ]]; then
+            if [[ "$extension" == "$rule_ext" ]]
+            then
                 echo "${target_root}/${destination}${filename}"
                 return
             fi
         # Handle exact filename match
-        elif [[ "$filename" == "$pattern" ]]; then
+        elif [[ "$filename" == "$pattern" ]]
+        then
             echo "${target_root}/${destination}${filename}"
             return
         fi
@@ -193,7 +202,8 @@ get_destination() {
 #           $2 = target directory
 #           $3... = source directories
 # ----------------------------------------------------------------------------
-generate_manifest() {
+generate_manifest()
+{
     local manifest_file="$1"
     local target_dir="$2"
     shift 2
@@ -235,11 +245,13 @@ generate_manifest() {
     declare -A destination_map
 
     # Process each source directory
-    for source_dir in "${source_dirs[@]}"; do
+    for source_dir in "${source_dirs[@]}"
+    do
         log_info "Processing: $source_dir"
 
         # Find all files
-        while IFS= read -r -d '' source_path; do
+        while IFS= read -r -d '' source_path
+        do
             local filename
             filename=$(basename "$source_path")
 
@@ -251,7 +263,8 @@ generate_manifest() {
             local status="PLANNED"
             local notes=""
 
-            if [[ -n "${destination_map[$dest_path]}" ]]; then
+            if [[ -n "${destination_map[$dest_path]:-}" ]]
+            then
                 status="CONFLICT"
                 notes="Conflicts with: ${destination_map[$dest_path]}"
             else
@@ -261,7 +274,8 @@ generate_manifest() {
             # Check file size
             local file_size
             file_size=$(get_file_size "$source_path")
-            if [[ $file_size -gt $LARGE_FILE_THRESHOLD ]]; then
+            if [[ $file_size -gt $LARGE_FILE_THRESHOLD ]]
+            then
                 notes="${notes}Large file: $(format_bytes $file_size)"
             fi
 
@@ -291,7 +305,8 @@ generate_manifest() {
 # ARGS:     $1 = script file path
 #           $2 = manifest file path
 # ----------------------------------------------------------------------------
-generate_execute_script() {
+generate_execute_script()
+{
     local script_file="$1"
     local manifest_file="$2"
 
@@ -318,12 +333,14 @@ set -e  # Exit on error
 DRY_RUN=1
 
 # Parse arguments
-if [[ "$1" == "--execute" ]]; then
+if [[ "$1" == "--execute" ]]
+then
     DRY_RUN=0
     echo "*** EXECUTE MODE - Files will be moved ***"
     echo ""
     read -p "Are you sure? Type 'yes' to proceed: " confirm
-    if [[ "$confirm" != "yes" ]]; then
+    if [[ "$confirm" != "yes" ]]
+    then
         echo "Aborted."
         exit 0
     fi
@@ -347,7 +364,8 @@ failed=0
 # Logging
 log_file="execution_log_$(date +%Y-%m-%d_%H-%M-%S).txt"
 
-log() {
+log()
+{
     echo "$1"
     echo "$(date '+%Y-%m-%d %H:%M:%S') | $1" >> "$log_file"
 }
@@ -362,32 +380,52 @@ HEADER
     echo "" >> "$script_file"
 
     # Read manifest and generate move commands
-    while IFS='|' read -r status source dest notes; do
+    while IFS='|' read -r status source dest notes
+    do
         # Skip header lines and non-planned entries
         [[ "$status" =~ ^# ]] && continue
         [[ "$status" != "PLANNED" ]] && continue
         [[ -z "$source" ]] && continue
 
+        # Escape special characters in paths for safe embedding
+        local escaped_source="${source//\\/\\\\}"
+        escaped_source="${escaped_source//\"/\\\"}"
+        escaped_source="${escaped_source//\$/\\\$}"
+        escaped_source="${escaped_source//\`/\\\`}"
+
+        local escaped_dest="${dest//\\/\\\\}"
+        escaped_dest="${escaped_dest//\"/\\\"}"
+        escaped_dest="${escaped_dest//\$/\\\$}"
+        escaped_dest="${escaped_dest//\`/\\\`}"
+
+        local escaped_basename
+        escaped_basename=$(basename "$source")
+        escaped_basename="${escaped_basename//\\/\\\\}"
+        escaped_basename="${escaped_basename//\"/\\\"}"
+
         # Write the move command
         cat >> "$script_file" << EOF
 
-# Move: $(basename "$source")
-if [[ -f "$source" ]]; then
-    dest_dir="\$(dirname "$dest")"
-    if [[ "\$DRY_RUN" -eq 1 ]]; then
-        echo "[DRY RUN] Would move: $(basename "$source")"
+# Move: $escaped_basename
+if [[ -f "$escaped_source" ]]
+then
+    dest_dir="\$(dirname "$escaped_dest")"
+    if [[ "\$DRY_RUN" -eq 1 ]]
+    then
+        echo "[DRY RUN] Would move: $escaped_basename"
     else
         mkdir -p "\$dest_dir"
-        if mv "$source" "$dest"; then
-            log "MOVED: $source -> $dest"
+        if mv "$escaped_source" "$escaped_dest"
+        then
+            log "MOVED: $escaped_source -> $escaped_dest"
             ((moved++))
         else
-            log "FAILED: $source"
+            log "FAILED: $escaped_source"
             ((failed++))
         fi
     fi
 else
-    log "SKIPPED (not found): $source"
+    log "SKIPPED (not found): $escaped_source"
     ((skipped++))
 fi
 EOF
@@ -407,7 +445,8 @@ echo "EXECUTION COMPLETE"
 echo "=============================================="
 echo ""
 
-if [[ "$DRY_RUN" -eq 1 ]]; then
+if [[ "$DRY_RUN" -eq 1 ]]
+then
     echo "This was a DRY RUN. No files were moved."
     echo "Run with --execute to perform actual moves."
 else
@@ -431,7 +470,8 @@ FOOTER
 # ARGS:     $1 = script file path
 #           $2 = manifest file path
 # ----------------------------------------------------------------------------
-generate_reversal_script() {
+generate_reversal_script()
+{
     local script_file="$1"
     local manifest_file="$2"
 
@@ -458,7 +498,8 @@ echo "=============================================="
 echo ""
 echo "This will move files back to their original locations."
 read -p "Are you sure? Type 'yes' to proceed: " confirm
-if [[ "$confirm" != "yes" ]]; then
+if [[ "$confirm" != "yes" ]]
+then
     echo "Aborted."
     exit 0
 fi
@@ -468,23 +509,52 @@ echo ""
 HEADER
 
     # Read manifest in reverse and generate reversal commands
-    # Using tac (reverse cat) if available, otherwise tail -r on macOS
-    local reverse_cmd="tail -r"
+    # Using tail -r on macOS, tac on Linux, or awk as fallback
+    local reversed_content
+    if command -v tac &> /dev/null
+    then
+        reversed_content=$(tac "$manifest_file")
+    elif tail -r /dev/null &> /dev/null
+    then
+        reversed_content=$(tail -r "$manifest_file")
+    else
+        # awk fallback for reversing lines
+        reversed_content=$(awk '{a[NR]=$0} END {for(i=NR;i>=1;i--) print a[i]}' "$manifest_file")
+    fi
 
-    while IFS='|' read -r status source dest notes; do
+    while IFS='|' read -r status source dest notes
+    do
         [[ "$status" =~ ^# ]] && continue
         [[ "$status" != "PLANNED" ]] && continue
         [[ -z "$source" ]] && continue
 
+        # Escape special characters
+        local escaped_source="${source//\\/\\\\}"
+        escaped_source="${escaped_source//\"/\\\"}"
+        escaped_source="${escaped_source//\$/\\\$}"
+
+        local escaped_dest="${dest//\\/\\\\}"
+        escaped_dest="${escaped_dest//\"/\\\"}"
+        escaped_dest="${escaped_dest//\$/\\\$}"
+
+        local escaped_basename
+        escaped_basename=$(basename "$source")
+
+        local source_dir
+        source_dir=$(dirname "$source")
+        local escaped_source_dir="${source_dir//\\/\\\\}"
+        escaped_source_dir="${escaped_source_dir//\"/\\\"}"
+
         cat >> "$script_file" << EOF
-# Reverse: $(basename "$dest")
-if [[ -f "$dest" ]]; then
-    mkdir -p "$(dirname "$source")"
-    mv "$dest" "$source" && echo "Restored: $(basename "$source")"
+# Reverse: $escaped_basename
+if [[ -f "$escaped_dest" ]]
+then
+    mkdir -p "$escaped_source_dir"
+    mv "$escaped_dest" "$escaped_source" && echo "Restored: $escaped_basename"
 fi
 EOF
 
-    done < <($reverse_cmd "$manifest_file" 2>/dev/null || tac "$manifest_file" 2>/dev/null || cat "$manifest_file")
+    done <<< "$reversed_content"
 
     cat >> "$script_file" << 'FOOTER'
 
@@ -507,12 +577,14 @@ FOOTER
 # ARGS:     $1 = backup file path (without extension)
 #           $2... = directories to backup
 # ----------------------------------------------------------------------------
-generate_backup() {
+generate_backup()
+{
     local backup_path="$1"
     shift
     local dirs=("$@")
 
-    if [[ "$CREATE_BACKUP" -ne 1 ]]; then
+    if [[ "$CREATE_BACKUP" -ne 1 ]]
+    then
         log_info "Backup creation skipped (CREATE_BACKUP=0)"
         return
     fi
@@ -525,8 +597,8 @@ generate_backup() {
         --exclude='.DS_Store' \
         --exclude='.localized' \
         --exclude='._*' \
-        "${dirs[@]}" 2>/dev/null; then
-
+        "${dirs[@]}" 2>/dev/null
+    then
         local backup_size
         backup_size=$(format_bytes "$(get_file_size "$backup_file")")
         log_success "Backup created: $backup_file ($backup_size)"
@@ -540,7 +612,8 @@ generate_backup() {
 # SECTION: MAIN EXECUTION
 # ============================================================================
 
-main() {
+main()
+{
     log_header "PHASE 3: GENERATE PLAN"
 
     local target_dir=""
@@ -549,7 +622,8 @@ main() {
     local mapping_file=""
 
     # Parse command line arguments
-    while [[ $# -gt 0 ]]; do
+    while [[ $# -gt 0 ]]
+    do
         case "$1" in
             --target)
                 target_dir="$2"
@@ -579,12 +653,14 @@ main() {
     done
 
     # Validate inputs
-    if [[ -z "$target_dir" ]]; then
+    if [[ -z "$target_dir" ]]
+    then
         log_error "Target directory required (--target)"
         exit 1
     fi
 
-    if [[ ${#source_dirs[@]} -eq 0 ]]; then
+    if [[ ${#source_dirs[@]} -eq 0 ]]
+    then
         log_error "Source directories required (--sources dir1,dir2)"
         exit 1
     fi
@@ -603,7 +679,8 @@ main() {
     echo ""
 
     # Load mappings
-    if [[ -n "$mapping_file" ]]; then
+    if [[ -n "$mapping_file" ]]
+    then
         load_mapping_file "$mapping_file"
     else
         load_default_mappings
@@ -622,7 +699,8 @@ main() {
     echo "  Manifest:  $MANIFEST_FILE"
     echo "  Execute:   $EXECUTE_SCRIPT"
     echo "  Reversal:  $REVERSAL_SCRIPT"
-    if [[ "$CREATE_BACKUP" -eq 1 ]]; then
+    if [[ "$CREATE_BACKUP" -eq 1 ]]
+    then
         echo "  Backup:    ${BACKUP_FILE}.tar.gz"
     fi
     echo ""
