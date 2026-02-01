@@ -29,18 +29,16 @@ verify_backup_exists()
 {
     local backup_pattern="$1"
 
-    # Look for backup files matching the pattern
-    local backup_files
-    backup_files=$(ls ${backup_pattern}*.tar.gz 2>/dev/null | head -1)
-
-    if [[ -z "$backup_files" ]]
+    # Use array glob to avoid unquoted word-splitting
+    local -a matches=( "${backup_pattern}"*.tar.gz )
+    if [[ -f "${matches[0]:-}" ]]
     then
-        log_warn "No backup file found matching: ${backup_pattern}*.tar.gz"
-        return 1
+        log_success "Backup verified: ${matches[0]}"
+        return 0
     fi
 
-    log_success "Backup verified: $backup_files"
-    return 0
+    log_warn "No backup file found matching: ${backup_pattern}*.tar.gz"
+    return 1
 }
 
 # ----------------------------------------------------------------------------

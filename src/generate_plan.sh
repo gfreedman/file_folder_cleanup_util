@@ -2,8 +2,7 @@
 # ============================================================================
 # FILE:        generate_plan.sh
 # PURPOSE:     Phase 3 - Generate migration plan and scripts
-# DESCRIPTION: This script takes the analysis and structure from previous
-#              phases and generates:
+# DESCRIPTION: Takes analysis and structure from previous phases and generates:
 #              1. manifest.txt - Complete audit trail of all planned moves
 #              2. execute.sh - The actual migration script (with dry-run)
 #              3. reversal.sh - Script to undo all changes
@@ -11,11 +10,10 @@
 #
 # USAGE:       ./generate_plan.sh --sources <dir1,dir2> --target <dir>
 #                                 --structure <file> [--mapping <file>]
+#                                 [--analysis <file>]
 #
 # OUTPUT:      Creates 4 files in OUTPUT_DIR
-#
 # NOTE:        This phase WRITES files but does NOT move any user files.
-#              User files are only moved in Phase 4.
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,32 +23,21 @@ source "${SCRIPT_DIR}/utils.sh"
 # SECTION: CONFIGURATION
 # ============================================================================
 
-# File paths for generated outputs
 TIMESTAMP=$(get_timestamp)
 MANIFEST_FILE=""
 EXECUTE_SCRIPT=""
 REVERSAL_SCRIPT=""
 BACKUP_FILE=""
 
-# Mapping rules (can be customized)
-# Format: source_pattern|destination_folder
 declare -a MAPPING_RULES=()
 
 # ============================================================================
 # SECTION: MAPPING FUNCTIONS
 # ============================================================================
 
-# ----------------------------------------------------------------------------
-# FUNCTION: load_default_mappings
-# PURPOSE:  Load default file-to-folder mapping rules
-# NOTE:     These can be overridden by a custom mapping file
-# ----------------------------------------------------------------------------
+# Load default file-to-folder mapping rules
 load_default_mappings()
 {
-    # Default mappings based on file extensions
-    # Format: "pattern|destination"
-    # Pattern can be: extension (*.pdf), folder name, or filename pattern
-
     MAPPING_RULES=(
         # Documents
         "*.pdf|Documents/"
@@ -110,11 +97,8 @@ load_default_mappings()
     )
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: load_mapping_file
-# PURPOSE:  Load custom mapping rules from a file
-# ARGS:     $1 = mapping file path
-# ----------------------------------------------------------------------------
+# Load custom mapping rules from a file
+# Args: $1 = mapping file path
 load_mapping_file()
 {
     local mapping_file="$1"
@@ -129,13 +113,10 @@ load_mapping_file()
 
     log_info "Loading custom mappings from: $mapping_file"
 
-    # Clear default rules
     MAPPING_RULES=()
 
-    # Read rules from file
     while IFS='|' read -r pattern destination
     do
-        # Skip comments and empty lines
         [[ "$pattern" =~ ^# ]] && continue
         [[ -z "$pattern" ]] && continue
 
@@ -145,13 +126,9 @@ load_mapping_file()
     log_success "Loaded ${#MAPPING_RULES[@]} mapping rules"
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: get_destination
-# PURPOSE:  Determine destination folder for a file based on mapping rules
-# ARGS:     $1 = source file path
-#           $2 = target root directory
-# OUTPUT:   Prints full destination path
-# ----------------------------------------------------------------------------
+# Determine destination folder for a file based on mapping rules
+# Args: $1 = source file path, $2 = target root directory
+# Output: Prints full destination path
 get_destination()
 {
     local source_path="$1"
@@ -163,14 +140,11 @@ get_destination()
     local extension
     extension=$(echo "${filename##*.}" | tr '[:upper:]' '[:lower:]')
 
-    # Try to match against rules
     for rule in "${MAPPING_RULES[@]}"
     do
         local pattern="${rule%%|*}"
         local destination="${rule##*|}"
 
-        # Check if pattern matches
-        # Handle *.ext patterns
         if [[ "$pattern" == "*."* ]]
         then
             local rule_ext="${pattern#*.}"
@@ -179,7 +153,6 @@ get_destination()
                 echo "${target_root}/${destination}${filename}"
                 return
             fi
-        # Handle exact filename match
         elif [[ "$filename" == "$pattern" ]]
         then
             echo "${target_root}/${destination}${filename}"
@@ -197,16 +170,20 @@ get_destination()
 
 # ----------------------------------------------------------------------------
 # FUNCTION: generate_manifest
-# PURPOSE:  Create a detailed manifest of all planned moves
+# PURPOSE:  Create a detailed manifest of all planned moves. If an analysis
+#           export file is provided, reads the file list from it instead of
+#           re-running find (eliminates duplicate traversals).
 # ARGS:     $1 = manifest file path
 #           $2 = target directory
-#           $3... = source directories
+#           $3 = analysis file path (optional, "" to skip)
+#           $4... = source directories
 # ----------------------------------------------------------------------------
 generate_manifest()
 {
     local manifest_file="$1"
     local target_dir="$2"
-    shift 2
+    local analysis_file="$3"
+    shift 3
     local source_dirs=("$@")
 
     log_info "Generating manifest: $manifest_file"
@@ -241,56 +218,87 @@ generate_manifest()
         echo ""
     } > "$manifest_file"
 
-    # Track destinations to detect conflicts
     declare -A destination_map
 
-    # Process each source directory
-    for source_dir in "${source_dirs[@]}"
-    do
-        log_info "Processing: $source_dir"
+    # If analysis file is available, read file list from it
+    if [[ -n "$analysis_file" && -f "$analysis_file" ]]
+    then
+        log_info "Reading file list from analysis export: $analysis_file"
 
-        # Find all files
-        while IFS= read -r -d '' source_path
+        {
+            while IFS='|' read -r type data
+            do
+                [[ "$type" != "FILE" ]] && continue
+                [[ -z "$data" ]] && continue
+
+                local source_path="$data"
+                local filename
+                filename=$(basename "$source_path")
+
+                local dest_path
+                dest_path=$(get_destination "$source_path" "$target_dir")
+
+                local status="PLANNED"
+                local notes=""
+
+                if [[ -n "${destination_map[$dest_path]:-}" ]]
+                then
+                    status="CONFLICT"
+                    notes="Conflicts with: ${destination_map[$dest_path]}"
+                else
+                    destination_map[$dest_path]="$source_path"
+                fi
+
+                local file_size
+                file_size=$(get_file_size "$source_path")
+                if [[ $file_size -gt $LARGE_FILE_THRESHOLD ]]
+                then
+                    notes="${notes}Large file: $(format_bytes $file_size)"
+                fi
+
+                echo "$status|$source_path|$dest_path|$notes"
+
+            done < "$analysis_file"
+        } >> "$manifest_file"
+    else
+        # Fall back to find traversal
+        for source_dir in "${source_dirs[@]}"
         do
-            local filename
-            filename=$(basename "$source_path")
+            log_info "Processing: $source_dir"
 
-            # Determine destination
-            local dest_path
-            dest_path=$(get_destination "$source_path" "$target_dir")
+            {
+                while IFS= read -r -d '' source_path
+                do
+                    local filename
+                    filename=$(basename "$source_path")
 
-            # Check for conflicts
-            local status="PLANNED"
-            local notes=""
+                    local dest_path
+                    dest_path=$(get_destination "$source_path" "$target_dir")
 
-            if [[ -n "${destination_map[$dest_path]:-}" ]]
-            then
-                status="CONFLICT"
-                notes="Conflicts with: ${destination_map[$dest_path]}"
-            else
-                destination_map[$dest_path]="$source_path"
-            fi
+                    local status="PLANNED"
+                    local notes=""
 
-            # Check file size
-            local file_size
-            file_size=$(get_file_size "$source_path")
-            if [[ $file_size -gt $LARGE_FILE_THRESHOLD ]]
-            then
-                notes="${notes}Large file: $(format_bytes $file_size)"
-            fi
+                    if [[ -n "${destination_map[$dest_path]:-}" ]]
+                    then
+                        status="CONFLICT"
+                        notes="Conflicts with: ${destination_map[$dest_path]}"
+                    else
+                        destination_map[$dest_path]="$source_path"
+                    fi
 
-            # Write to manifest
-            echo "$status|$source_path|$dest_path|$notes" >> "$manifest_file"
+                    local file_size
+                    file_size=$(get_file_size "$source_path")
+                    if [[ $file_size -gt $LARGE_FILE_THRESHOLD ]]
+                    then
+                        notes="${notes}Large file: $(format_bytes $file_size)"
+                    fi
 
-        done < <(find "$source_dir" -type f \
-            ! -name '.DS_Store' \
-            ! -name '.localized' \
-            ! -name '._*' \
-            ! -path '*/.git/*' \
-            ! -path '*/venv/*' \
-            ! -path '*/__pycache__/*' \
-            -print0 2>/dev/null)
-    done
+                    echo "$status|$source_path|$dest_path|$notes"
+
+                done < <(find "$source_dir" -type f "${FIND_EXCLUDES[@]}" -print0 2>/dev/null)
+            } >> "$manifest_file"
+        done
+    fi
 
     log_success "Manifest generated with $(grep -c '^PLANNED\|^CONFLICT\|^DUPLICATE\|^LARGE' "$manifest_file") entries"
 }
@@ -301,25 +309,27 @@ generate_manifest()
 
 # ----------------------------------------------------------------------------
 # FUNCTION: generate_execute_script
-# PURPOSE:  Create the migration execution script
-# ARGS:     $1 = script file path
-#           $2 = manifest file path
+# PURPOSE:  Create the migration execution script. The generated script reads
+#           moves from the manifest at runtime rather than inlining paths,
+#           which eliminates shell injection vectors and produces a smaller script.
+# ARGS:     $1 = script file path, $2 = manifest file path
 # ----------------------------------------------------------------------------
 generate_execute_script()
 {
     local script_file="$1"
     local manifest_file="$2"
+    local manifest_basename
+    manifest_basename=$(basename "$manifest_file")
 
     log_info "Generating execute script: $script_file"
 
-    # Write script header
     cat > "$script_file" << 'HEADER'
 #!/bin/bash
 # ============================================================================
 # FILE:        execute.sh (auto-generated)
 # PURPOSE:     Execute the file reorganization
-# DESCRIPTION: This script performs all the file moves defined in the manifest.
-#              It runs in DRY-RUN mode by default for safety.
+# DESCRIPTION: This script reads moves from the manifest file and performs
+#              them. It runs in DRY-RUN mode by default for safety.
 #
 # USAGE:       ./execute.sh              # Dry run (preview)
 #              ./execute.sh --execute    # Actually move files
@@ -333,7 +343,7 @@ set -e  # Exit on error
 DRY_RUN=1
 
 # Parse arguments
-if [[ "$1" == "--execute" ]]
+if [[ "${1:-}" == "--execute" ]]
 then
     DRY_RUN=0
     echo "*** EXECUTE MODE - Files will be moved ***"
@@ -372,65 +382,54 @@ log()
 
 HEADER
 
-    # Add move commands from manifest
-    echo "" >> "$script_file"
-    echo "# ============================================================================" >> "$script_file"
-    echo "# FILE MOVES" >> "$script_file"
-    echo "# ============================================================================" >> "$script_file"
-    echo "" >> "$script_file"
+    # Write the manifest-reading move logic
+    cat >> "$script_file" << MANIFEST_READER
 
-    # Read manifest and generate move commands
-    while IFS='|' read -r status source dest notes
-    do
-        # Skip header lines and non-planned entries
-        [[ "$status" =~ ^# ]] && continue
-        [[ "$status" != "PLANNED" ]] && continue
-        [[ -z "$source" ]] && continue
+# ============================================================================
+# FILE MOVES (read from manifest)
+# ============================================================================
 
-        # Escape special characters in paths for safe embedding
-        local escaped_source="${source//\\/\\\\}"
-        escaped_source="${escaped_source//\"/\\\"}"
-        escaped_source="${escaped_source//\$/\\\$}"
-        escaped_source="${escaped_source//\`/\\\`}"
+MANIFEST_FILE="\$(dirname "\$0")/${manifest_basename}"
 
-        local escaped_dest="${dest//\\/\\\\}"
-        escaped_dest="${escaped_dest//\"/\\\"}"
-        escaped_dest="${escaped_dest//\$/\\\$}"
-        escaped_dest="${escaped_dest//\`/\\\`}"
-
-        local escaped_basename
-        escaped_basename=$(basename "$source")
-        escaped_basename="${escaped_basename//\\/\\\\}"
-        escaped_basename="${escaped_basename//\"/\\\"}"
-
-        # Write the move command
-        cat >> "$script_file" << EOF
-
-# Move: $escaped_basename
-if [[ -f "$escaped_source" ]]
+if [[ ! -f "\$MANIFEST_FILE" ]]
 then
-    dest_dir="\$(dirname "$escaped_dest")"
-    if [[ "\$DRY_RUN" -eq 1 ]]
-    then
-        echo "[DRY RUN] Would move: $escaped_basename"
-    else
-        mkdir -p "\$dest_dir"
-        if mv "$escaped_source" "$escaped_dest"
-        then
-            log "MOVED: $escaped_source -> $escaped_dest"
-            ((moved++))
-        else
-            log "FAILED: $escaped_source"
-            ((failed++))
-        fi
-    fi
-else
-    log "SKIPPED (not found): $escaped_source"
-    ((skipped++))
+    echo "Error: Manifest not found: \$MANIFEST_FILE" >&2
+    exit 1
 fi
-EOF
 
-    done < "$manifest_file"
+while IFS='|' read -r status source dest notes
+do
+    # Skip header lines, comments, and non-planned entries
+    [[ "\$status" =~ ^# ]] && continue
+    [[ "\$status" != "PLANNED" ]] && continue
+    [[ -z "\$source" ]] && continue
+
+    basename_file="\$(basename "\$source")"
+
+    if [[ -f "\$source" ]]
+    then
+        dest_dir="\$(dirname "\$dest")"
+        if [[ "\$DRY_RUN" -eq 1 ]]
+        then
+            echo "[DRY RUN] Would move: \$basename_file"
+        else
+            mkdir -p "\$dest_dir"
+            if mv "\$source" "\$dest"
+            then
+                log "MOVED: \$source -> \$dest"
+                ((moved++))
+            else
+                log "FAILED: \$source"
+                ((failed++))
+            fi
+        fi
+    else
+        log "SKIPPED (not found): \$source"
+        ((skipped++))
+    fi
+done < "\$MANIFEST_FILE"
+
+MANIFEST_READER
 
     # Add summary section
     cat >> "$script_file" << 'FOOTER'
@@ -458,7 +457,6 @@ else
 fi
 FOOTER
 
-    # Make executable
     chmod +x "$script_file"
 
     log_success "Execute script generated"
@@ -466,28 +464,27 @@ FOOTER
 
 # ----------------------------------------------------------------------------
 # FUNCTION: generate_reversal_script
-# PURPOSE:  Create a script to undo all moves
-# ARGS:     $1 = script file path
-#           $2 = manifest file path
+# PURPOSE:  Create a script to undo all moves. Reads from manifest at runtime.
+# ARGS:     $1 = script file path, $2 = manifest file path
 # ----------------------------------------------------------------------------
 generate_reversal_script()
 {
     local script_file="$1"
     local manifest_file="$2"
+    local manifest_basename
+    manifest_basename=$(basename "$manifest_file")
 
     log_info "Generating reversal script: $script_file"
 
-    # Write script header
-    cat > "$script_file" << 'HEADER'
+    cat > "$script_file" << REVERSAL_SCRIPT
 #!/bin/bash
 # ============================================================================
 # FILE:        reversal.sh (auto-generated)
 # PURPOSE:     Undo the file reorganization
-# DESCRIPTION: This script moves files back to their original locations.
+# DESCRIPTION: Reads the manifest and moves files back to their original
+#              locations. Processes in reverse order (LIFO).
 #
 # USAGE:       ./reversal.sh
-#
-# NOTE:        This script reverses moves in reverse order (LIFO)
 # ============================================================================
 
 set -e
@@ -498,7 +495,7 @@ echo "=============================================="
 echo ""
 echo "This will move files back to their original locations."
 read -p "Are you sure? Type 'yes' to proceed: " confirm
-if [[ "$confirm" != "yes" ]]
+if [[ "\$confirm" != "yes" ]]
 then
     echo "Aborted."
     exit 0
@@ -506,61 +503,47 @@ fi
 
 echo ""
 
-HEADER
+MANIFEST_FILE="\$(dirname "\$0")/${manifest_basename}"
 
-    # Read manifest in reverse and generate reversal commands
-    # Using tail -r on macOS, tac on Linux, or awk as fallback
-    local reversed_content
+if [[ ! -f "\$MANIFEST_FILE" ]]
+then
+    echo "Error: Manifest not found: \$MANIFEST_FILE" >&2
+    exit 1
+fi
+
+# Read manifest in reverse order
+reverse_lines()
+{
     if command -v tac &> /dev/null
     then
-        reversed_content=$(tac "$manifest_file")
+        tac "\$1"
     elif tail -r /dev/null &> /dev/null
     then
-        reversed_content=$(tail -r "$manifest_file")
+        tail -r "\$1"
     else
-        # awk fallback for reversing lines
-        reversed_content=$(awk '{a[NR]=$0} END {for(i=NR;i>=1;i--) print a[i]}' "$manifest_file")
+        awk '{a[NR]=\$0} END {for(i=NR;i>=1;i--) print a[i]}' "\$1"
     fi
+}
 
-    while IFS='|' read -r status source dest notes
-    do
-        [[ "$status" =~ ^# ]] && continue
-        [[ "$status" != "PLANNED" ]] && continue
-        [[ -z "$source" ]] && continue
+while IFS='|' read -r status source dest notes
+do
+    [[ "\$status" =~ ^# ]] && continue
+    [[ "\$status" != "PLANNED" ]] && continue
+    [[ -z "\$source" ]] && continue
 
-        # Escape special characters
-        local escaped_source="${source//\\/\\\\}"
-        escaped_source="${escaped_source//\"/\\\"}"
-        escaped_source="${escaped_source//\$/\\\$}"
+    basename_file="\$(basename "\$source")"
+    source_dir="\$(dirname "\$source")"
 
-        local escaped_dest="${dest//\\/\\\\}"
-        escaped_dest="${escaped_dest//\"/\\\"}"
-        escaped_dest="${escaped_dest//\$/\\\$}"
-
-        local escaped_basename
-        escaped_basename=$(basename "$source")
-
-        local source_dir
-        source_dir=$(dirname "$source")
-        local escaped_source_dir="${source_dir//\\/\\\\}"
-        escaped_source_dir="${escaped_source_dir//\"/\\\"}"
-
-        cat >> "$script_file" << EOF
-# Reverse: $escaped_basename
-if [[ -f "$escaped_dest" ]]
-then
-    mkdir -p "$escaped_source_dir"
-    mv "$escaped_dest" "$escaped_source" && echo "Restored: $escaped_basename"
-fi
-EOF
-
-    done <<< "$reversed_content"
-
-    cat >> "$script_file" << 'FOOTER'
+    if [[ -f "\$dest" ]]
+    then
+        mkdir -p "\$source_dir"
+        mv "\$dest" "\$source" && echo "Restored: \$basename_file"
+    fi
+done < <(reverse_lines "\$MANIFEST_FILE")
 
 echo ""
 echo "Reversal complete!"
-FOOTER
+REVERSAL_SCRIPT
 
     chmod +x "$script_file"
 
@@ -571,12 +554,8 @@ FOOTER
 # SECTION: BACKUP GENERATION
 # ============================================================================
 
-# ----------------------------------------------------------------------------
-# FUNCTION: generate_backup
-# PURPOSE:  Create a tar.gz backup of source directories
-# ARGS:     $1 = backup file path (without extension)
-#           $2... = directories to backup
-# ----------------------------------------------------------------------------
+# Create a tar.gz backup of source directories
+# Args: $1 = backup file path (without extension), $2... = directories
 generate_backup()
 {
     local backup_path="$1"
@@ -592,7 +571,6 @@ generate_backup()
     local backup_file="${backup_path}.tar.gz"
     log_info "Creating backup: $backup_file"
 
-    # Create backup
     if tar -czf "$backup_file" \
         --exclude='.DS_Store' \
         --exclude='.localized' \
@@ -620,8 +598,8 @@ main()
     local source_dirs=()
     local structure_file=""
     local mapping_file=""
+    local analysis_file=""
 
-    # Parse command line arguments
     while [[ $# -gt 0 ]]
     do
         case "$1" in
@@ -641,6 +619,10 @@ main()
                 mapping_file="$2"
                 shift 2
                 ;;
+            --analysis)
+                analysis_file="$2"
+                shift 2
+                ;;
             --output)
                 OUTPUT_DIR="$2"
                 shift 2
@@ -652,7 +634,6 @@ main()
         esac
     done
 
-    # Validate inputs
     if [[ -z "$target_dir" ]]
     then
         log_error "Target directory required (--target)"
@@ -665,7 +646,6 @@ main()
         exit 1
     fi
 
-    # Set up output files
     OUTPUT_DIR="${OUTPUT_DIR:-.}"
     MANIFEST_FILE="${OUTPUT_DIR}/manifest_${TIMESTAMP}.txt"
     EXECUTE_SCRIPT="${OUTPUT_DIR}/execute_${TIMESTAMP}.sh"
@@ -676,9 +656,9 @@ main()
     echo "  Target:  $target_dir"
     echo "  Sources: ${source_dirs[*]}"
     echo "  Output:  $OUTPUT_DIR"
+    [[ -n "$analysis_file" ]] && echo "  Analysis: $analysis_file"
     echo ""
 
-    # Load mappings
     if [[ -n "$mapping_file" ]]
     then
         load_mapping_file "$mapping_file"
@@ -686,13 +666,11 @@ main()
         load_default_mappings
     fi
 
-    # Generate all artifacts
-    generate_manifest "$MANIFEST_FILE" "$target_dir" "${source_dirs[@]}"
+    generate_manifest "$MANIFEST_FILE" "$target_dir" "${analysis_file:-}" "${source_dirs[@]}"
     generate_execute_script "$EXECUTE_SCRIPT" "$MANIFEST_FILE"
     generate_reversal_script "$REVERSAL_SCRIPT" "$MANIFEST_FILE"
     generate_backup "$BACKUP_FILE" "${source_dirs[@]}"
 
-    # Summary
     log_header "GENERATION COMPLETE"
 
     echo "Generated files:"

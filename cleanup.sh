@@ -222,13 +222,13 @@ run_propose()
 {
     log_header "Running Phase 2: Propose Structure"
 
-    local template_arg=""
+    local -a template_args=()
     if [[ -n "$TEMPLATE" ]]
     then
-        template_arg="--template $TEMPLATE"
+        template_args=(--template "$TEMPLATE")
     fi
 
-    bash "${SCRIPT_DIR}/src/propose.sh" "$TARGET" $template_arg
+    bash "${SCRIPT_DIR}/src/propose.sh" "$TARGET" "${template_args[@]}"
 }
 
 run_generate()
