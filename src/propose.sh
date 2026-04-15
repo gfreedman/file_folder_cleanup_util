@@ -1,40 +1,11 @@
 #!/bin/bash
-# ============================================================================
-# FILE:        propose.sh
-# PURPOSE:     Phase 2 - Propose a folder structure for reorganization
-# DESCRIPTION: This script helps the user define or choose a target folder
-#              structure. It offers three approaches:
-#              1. Auto-analyze: Suggest structure based on file types found
-#              2. Templates: Choose from pre-built structure templates
-#              3. Custom: Define your own structure interactively
-#
-# USAGE:       ./propose.sh <target_dir> [--template <name>] [--auto] [--custom]
-#
-# OUTPUT:      Prints proposed structure to stdout
-#              Writes structure definition to file for next phase
-#
-# NOTE:        This is a READ-ONLY phase. No files are modified.
-# ============================================================================
+# Phase 2: Read-only — define the target folder structure via template, auto-analysis, or custom input.
 
-# Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Source the utility functions
 source "${SCRIPT_DIR}/utils.sh"
 
-# Templates directory (relative to script location)
 TEMPLATES_DIR="${SCRIPT_DIR}/../templates"
 
-# ============================================================================
-# SECTION: STRUCTURE TEMPLATES
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: load_template
-# PURPOSE:  Load a structure template from file
-# ARGS:     $1 = template name (without extension)
-# OUTPUT:   Prints template content to stdout
-# ----------------------------------------------------------------------------
 load_template()
 {
     local template_name="$1"
@@ -51,10 +22,6 @@ load_template()
     cat "$template_file"
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: list_templates
-# PURPOSE:  List all available structure templates
-# ----------------------------------------------------------------------------
 list_templates()
 {
     echo "Available templates:"
@@ -69,39 +36,23 @@ list_templates()
     done
 }
 
-# ============================================================================
-# SECTION: AUTO-ANALYSIS
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: analyze_file_types
-# PURPOSE:  Analyze an analysis export file to understand what types of
-#           files are present, then suggest a structure
-# ARGS:     $1 = analysis export file path
-# OUTPUT:   Prints suggested structure based on file types
-# ----------------------------------------------------------------------------
 analyze_file_types()
 {
     local analysis_file="$1"
 
     log_info "Analyzing file types to suggest structure..."
 
-    # Count files by extension
     declare -A ext_counts
-
-    # Read the analysis file and count extensions
     while IFS='|' read -r type data
     do
         if [[ "$type" == "FILE" ]]
         then
-            # Extract file extension (lowercase)
             local ext
             ext=$(echo "${data##*.}" | tr '[:upper:]' '[:lower:]')
             ext_counts[$ext]=$((${ext_counts[$ext]:-0} + 1))
         fi
     done < "$analysis_file"
 
-    # Categorize extensions into groups
     local has_documents=0
     local has_images=0
     local has_audio=0
@@ -130,7 +81,6 @@ analyze_file_types()
         esac
     done
 
-    # Generate suggested structure based on what we found
     echo "# Auto-generated structure based on file analysis"
     echo "# Modify as needed before proceeding"
     echo ""
@@ -186,17 +136,6 @@ analyze_file_types()
     done | sort -t':' -k2 -nr | head -20
 }
 
-# ============================================================================
-# SECTION: CUSTOM STRUCTURE INPUT
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: get_custom_structure
-# PURPOSE:  Interactively get a custom structure from the user
-# OUTPUT:   Prints structure definition
-# NOTE:     This function is designed to work with Claude Code, which can
-#           gather this information conversationally
-# ----------------------------------------------------------------------------
 get_custom_structure()
 {
     log_info "Define your custom folder structure"
@@ -214,7 +153,6 @@ get_custom_structure()
         then
             break
         fi
-        # Ensure folder ends with /
         [[ "$folder" != */ ]] && folder="${folder}/"
         structure="${structure}${folder}"$'\n'
     done
@@ -222,35 +160,22 @@ get_custom_structure()
     echo "$structure"
 }
 
-# ============================================================================
-# SECTION: STRUCTURE VALIDATION
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: validate_structure
-# PURPOSE:  Check that a proposed structure is valid
-# ARGS:     $1 = structure definition (newline-separated folder paths)
-# RETURNS:  0 if valid, 1 if invalid
-# ----------------------------------------------------------------------------
 validate_structure()
 {
     local structure="$1"
 
-    # Check that we have at least one folder
     if [[ -z "$structure" ]]
     then
         log_error "Structure is empty"
         return 1
     fi
 
-    # Check for invalid characters
     if echo "$structure" | grep -qE '[<>:"|?*]'
     then
         log_error "Structure contains invalid characters"
         return 1
     fi
 
-    # Check that paths don't start with /
     if echo "$structure" | grep -qE '^/'
     then
         log_warn "Paths should be relative, not absolute"
@@ -260,15 +185,6 @@ validate_structure()
     return 0
 }
 
-# ============================================================================
-# SECTION: STRUCTURE DISPLAY
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: display_structure
-# PURPOSE:  Display a structure in a tree-like format
-# ARGS:     $1 = structure definition (newline-separated folder paths)
-# ----------------------------------------------------------------------------
 display_structure()
 {
     local structure="$1"
@@ -276,25 +192,20 @@ display_structure()
     echo -e "${BOLD}Proposed Folder Structure:${NC}"
     echo ""
 
-    # Convert flat list to tree display
     echo "$structure" | grep -v '^#' | grep -v '^$' | sort | while read -r path
     do
-        # Count depth by counting slashes
         local depth
         depth=$(echo "$path" | tr -cd '/' | wc -c)
 
-        # Create indentation
         local indent=""
         for ((i=1; i<depth; i++))
         do
             indent="${indent}    "
         done
 
-        # Get just the folder name (last component)
         local name
         name=$(echo "$path" | sed 's|/$||' | rev | cut -d'/' -f1 | rev)
 
-        # Print with tree-like formatting
         if [[ $depth -eq 1 ]]
         then
             echo "├── $name/"
@@ -306,17 +217,6 @@ display_structure()
     echo ""
 }
 
-# ============================================================================
-# SECTION: STRUCTURE EXPORT
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: export_structure
-# PURPOSE:  Write structure definition to a file for the next phase
-# ARGS:     $1 = output file path
-#           $2 = target directory
-#           $3 = structure definition
-# ----------------------------------------------------------------------------
 export_structure()
 {
     local output_file="$1"
@@ -327,11 +227,9 @@ export_structure()
 
     {
         echo "# Structure Definition - $(get_timestamp)"
-        echo "# This file defines the target folder structure for reorganization"
         echo ""
         echo "TARGET_DIR|$target_dir"
         echo ""
-        echo "# Folders to create (relative to target)"
         echo "$structure" | grep -v '^#' | grep -v '^$' | while read -r path
         do
             echo "FOLDER|$path"
@@ -341,20 +239,15 @@ export_structure()
     log_success "Structure exported"
 }
 
-# ============================================================================
-# SECTION: MAIN EXECUTION
-# ============================================================================
-
 main()
 {
     log_header "PHASE 2: PROPOSE STRUCTURE"
 
     local target_dir=""
-    local mode="interactive"  # interactive, template, auto, custom
+    local mode="interactive"
     local template_name=""
     local analysis_file=""
 
-    # Parse command line arguments
     while [[ $# -gt 0 ]]
     do
         case "$1" in
@@ -390,7 +283,6 @@ main()
         esac
     done
 
-    # Validate target directory is specified
     if [[ -z "$target_dir" ]]
     then
         log_error "Usage: $0 <target_dir> [--template <name>] [--auto] [--custom]"
@@ -469,16 +361,13 @@ Archives/"
             ;;
     esac
 
-    # Validate the structure
     if ! validate_structure "$structure"
     then
         exit 1
     fi
 
-    # Display the structure
     display_structure "$structure"
 
-    # Export for next phase
     if [[ -n "${OUTPUT_DIR:-}" ]]
     then
         export_structure "${OUTPUT_DIR}/structure_$(get_timestamp).txt" "$target_dir" "$structure"

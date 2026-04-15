@@ -11,6 +11,10 @@ This utility helps users reorganize files from multiple source folders into a co
 3. **Generate** - Create migration scripts (writes 4 files)
 4. **Execute** - Run the migration (moves files)
 
+## Prerequisites
+
+- **Bash 4+** — macOS ships Bash 3.2. Install: `brew install bash`. The scripts will exit immediately with install instructions if the version is too old.
+
 ## Workflow for Claude Code
 
 When a user asks to reorganize, consolidate, or clean up their files/folders, follow this workflow:
@@ -118,7 +122,7 @@ Do NOT ask for permission for each file move. The batch script handles all moves
 
 When duplicates or conflicts are found:
 
-1. **Identical files (same MD5)**: Inform user, recommend keeping one copy
+1. **Identical files (same SHA-256)**: Inform user, recommend keeping one copy
 2. **Same name, different content**: Suggest renaming with source suffix
 3. **Destination exists**: Flag for manual review, do not overwrite
 

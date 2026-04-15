@@ -9,6 +9,8 @@
 manifest_*.txt
 execute_*.sh
 reversal_*.sh
+structure_*.txt
+analysis_*.txt
 
 # Temporary files
 *.tmp

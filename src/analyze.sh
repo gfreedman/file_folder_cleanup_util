@@ -1,24 +1,8 @@
 #!/bin/bash
-# ============================================================================
-# FILE:        analyze.sh
-# PURPOSE:     Phase 1 - Analyze source folders before reorganization
-# DESCRIPTION: Scans specified source folders and collects:
-#              - Complete file inventory with sizes
-#              - Duplicate files (same content, detected via SHA-256)
-#              - Large files (above configurable threshold)
-#              - Filename conflicts (same name in different locations)
-#
-# USAGE:       ./analyze.sh <source_dir1> [source_dir2] ...
-# OUTPUT:      Prints analysis summary to stdout
-# NOTE:        This is a READ-ONLY phase. No files are modified.
-# ============================================================================
+# Phase 1: Read-only scan of source folders — inventory, duplicates, large files, conflicts.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
-
-# ============================================================================
-# SECTION: CONFIGURATION
-# ============================================================================
 
 declare -a ALL_FILES=()
 declare -a LARGE_FILES=()
@@ -30,18 +14,6 @@ TOTAL_FILES=0
 TOTAL_DIRS=0
 TOTAL_SIZE=0
 
-# ============================================================================
-# SECTION: ANALYSIS FUNCTIONS
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: scan_directory
-# PURPOSE:  Recursively scan a directory and inventory all files.
-#           Uses local counters for per-directory reporting, then adds
-#           to global totals. Fixes the cumulative-count display bug.
-# ARGS:     $1 = directory path to scan
-# SIDE EFFECTS: Populates global arrays and accumulates TOTAL_* counters
-# ----------------------------------------------------------------------------
 scan_directory()
 {
     local dir_path="$1"
@@ -81,23 +53,20 @@ scan_directory()
             FILENAME_LOCATIONS[$file_name]="$file_path"
         fi
 
+    # -type f matches only regular files. Symlinks are intentionally excluded
+    # to avoid following links out of the source tree during reorganization.
     done < <(find "$dir_path" -type f "${FIND_EXCLUDES[@]}" -print0 2>/dev/null)
 
     log_success "Found $dir_file_count files in $source_name"
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: find_duplicates
-# PURPOSE:  Identify duplicate files using size-first filtering.
-#           First groups files by size, then only hashes files where 2+
-#           share the same size. Eliminates 90%+ of unnecessary hashing.
-# SIDE EFFECTS: Populates FILE_CHECKSUMS associative array
-# ----------------------------------------------------------------------------
+# Size-first: group by size before hashing — files that differ in size can't
+# be duplicates, so this cuts hash operations by ~90% on typical directories.
 find_duplicates()
 {
     log_info "Checking for duplicate files..."
 
-    # First pass: group files by size
+    # Pass 1: group files by size
     declare -A size_to_files
     for file_path in "${ALL_FILES[@]}"
     do
@@ -111,7 +80,7 @@ find_duplicates()
         fi
     done
 
-    # Second pass: only hash files where 2+ share the same size
+    # Pass 2: hash only size-matched candidates
     local checked=0
     local hash_candidates=0
 
@@ -134,7 +103,6 @@ find_duplicates()
         # Skip sizes with only one file
         [[ "$paths" != *"|"* ]] && continue
 
-        # Hash each file in this size group
         while IFS= read -r file_path
         do
             [[ -z "$file_path" ]] && continue
@@ -166,10 +134,6 @@ find_duplicates()
     log_success "Duplicate check complete"
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: print_summary
-# PURPOSE:  Print a formatted summary of the analysis
-# ----------------------------------------------------------------------------
 print_summary()
 {
     log_header "ANALYSIS SUMMARY"
@@ -248,11 +212,6 @@ print_summary()
     echo ""
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: export_analysis
-# PURPOSE:  Write detailed analysis to a parseable file for other scripts
-# ARGS:     $1 = output file path
-# ----------------------------------------------------------------------------
 export_analysis()
 {
     local output_file="$1"
@@ -301,10 +260,6 @@ export_analysis()
 
     log_success "Analysis exported"
 }
-
-# ============================================================================
-# SECTION: MAIN EXECUTION
-# ============================================================================
 
 main()
 {

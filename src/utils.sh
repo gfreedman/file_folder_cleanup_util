@@ -1,17 +1,7 @@
 #!/bin/bash
-# ============================================================================
-# FILE:        utils.sh
-# PURPOSE:     Shared utility functions for the file cleanup utility
-# DESCRIPTION: Helper functions used across all phases of the cleanup process.
-#              Handles logging, file operations, and common validation tasks.
-#
-# USAGE:       Source this file in other scripts:
-#              source "$(dirname "$0")/utils.sh"
-#
-# NOTE:        Requires bash 4+. macOS ships 3.2; install via: brew install bash
-# ============================================================================
+# Shared utility functions: logging, validation, file ops.
+# Source this file in other scripts: source "$(dirname "$0")/utils.sh"
 
-# Require bash 4+ for associative arrays
 if ((BASH_VERSINFO[0] < 4)); then
     echo "Error: Bash 4+ required. macOS ships 3.2; install via: brew install bash" >&2
     exit 1
@@ -20,11 +10,7 @@ fi
 set -u          # Exit on unset variable reference
 set -o pipefail # Propagate pipe failures
 
-# ============================================================================
-# SECTION: COLOR DEFINITIONS
-# ============================================================================
-
-# Check if terminal supports colors (not redirected to file)
+# Disable colors when stdout is redirected to a file.
 if [[ -t 1 ]]
 then
     RED='\033[0;31m'
@@ -44,23 +30,11 @@ else
     NC=''
 fi
 
-# ============================================================================
-# SECTION: CONFIGURATION DEFAULTS
-# ============================================================================
-
-# Large file threshold in bytes (default: 100MB)
-LARGE_FILE_THRESHOLD="${CLEANUP_LARGE_FILE_THRESHOLD:-104857600}"
-
-# Dry run mode (default: enabled for safety)
-DRY_RUN="${CLEANUP_DRY_RUN:-1}"
-
-# Create backup before making changes (default: enabled)
+LARGE_FILE_THRESHOLD="${CLEANUP_LARGE_FILE_THRESHOLD:-104857600}"  # 100MB
+DRY_RUN="${CLEANUP_DRY_RUN:-1}"          # default on for safety
 CREATE_BACKUP="${CLEANUP_CREATE_BACKUP:-1}"
-
-# Output directory for manifest, scripts, and backups
 OUTPUT_DIR="${CLEANUP_OUTPUT_DIR:-.}"
 
-# Shared find exclusions for macOS system files and common junk
 FIND_EXCLUDES=(
     ! -name '.DS_Store'
     ! -name '.localized'
@@ -70,35 +44,11 @@ FIND_EXCLUDES=(
     ! -path '*/__pycache__/*'
 )
 
-# ============================================================================
-# SECTION: LOGGING FUNCTIONS
-# ============================================================================
+log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Print an informational message
-log_info()
-{
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-# Print a success message
-log_success()
-{
-    echo -e "${GREEN}[OK]${NC} $1"
-}
-
-# Print a warning message
-log_warn()
-{
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-# Print an error message
-log_error()
-{
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Print a section header
 log_header()
 {
     echo ""
@@ -108,8 +58,6 @@ log_header()
     echo ""
 }
 
-# Append a timestamped message to a log file
-# Args: $1 = log file path, $2 = message
 log_to_file()
 {
     local log_file="$1"
@@ -117,12 +65,6 @@ log_to_file()
     echo "$(date '+%Y-%m-%d %H:%M:%S') | $message" >> "$log_file"
 }
 
-# ============================================================================
-# SECTION: VALIDATION FUNCTIONS
-# ============================================================================
-
-# Check if a path exists and is a directory
-# Returns: 0 if valid, 1 if not
 validate_directory()
 {
     local dir_path="$1"
@@ -142,12 +84,6 @@ validate_directory()
     return 0
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: validate_not_system_dir
-# PURPOSE:  Prevent accidental operations on critical system directories
-# ARGS:     $1 = path to check
-# RETURNS:  0 if safe, 1 if system directory
-# ----------------------------------------------------------------------------
 validate_not_system_dir()
 {
     local dir_path="$1"
@@ -196,30 +132,19 @@ validate_not_system_dir()
     return 0
 }
 
-# ============================================================================
-# SECTION: FILE INFORMATION FUNCTIONS
-# ============================================================================
-
-# Get the size of a file in bytes (macOS stat syntax)
 get_file_size()
 {
     local file_path="$1"
     stat -f "%z" "$file_path" 2>/dev/null || echo "0"
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: get_file_hash
-# PURPOSE:  Calculate SHA-256 checksum of a file (for duplicate detection)
-# ARGS:     $1 = file path
-# OUTPUT:   Prints SHA-256 hash to stdout (64 character hex string)
-# ----------------------------------------------------------------------------
 get_file_hash()
 {
     local file_path="$1"
     shasum -a 256 "$file_path" 2>/dev/null | cut -d' ' -f1
 }
 
-# Convert bytes to human-readable format using pure integer arithmetic
+# Pure integer arithmetic — avoids bc/awk dependency.
 format_bytes()
 {
     local bytes=$1
@@ -230,17 +155,6 @@ format_bytes()
     fi
 }
 
-# ============================================================================
-# SECTION: FILE OPERATION FUNCTIONS
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: safe_move
-# PURPOSE:  Move a file with safety checks and logging.
-#           Creates destination directory if needed. Respects DRY_RUN mode.
-# ARGS:     $1 = source path, $2 = destination path, $3 = log file (optional)
-# RETURNS:  0 on success, 1 on failure
-# ----------------------------------------------------------------------------
 safe_move()
 {
     local source_path="$1"
@@ -285,8 +199,6 @@ safe_move()
     fi
 }
 
-# Move an entire directory with safety checks
-# Args: $1 = source dir, $2 = dest dir, $3 = log file (optional)
 safe_move_dir()
 {
     local source_path="$1"
@@ -321,16 +233,8 @@ safe_move_dir()
     fi
 }
 
-# ============================================================================
-# SECTION: CLEANUP FUNCTIONS
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: remove_empty_dirs
-# PURPOSE:  Recursively remove empty directories. Uses find -depth for
-#           single-pass bottom-up removal. Respects DRY_RUN mode.
-# ARGS:     $1 = root directory to clean
-# ----------------------------------------------------------------------------
+# find -depth ensures bottom-up traversal so parent dirs are emptied
+# before we try to remove them — no second pass needed.
 remove_empty_dirs()
 {
     local root_dir="$1"
@@ -348,17 +252,6 @@ remove_empty_dirs()
     find "$root_dir" -depth -type d -empty -delete 2>/dev/null
 }
 
-# ============================================================================
-# SECTION: BACKUP FUNCTIONS
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: create_backup
-# PURPOSE:  Create a tar.gz backup of specified directories.
-#           Excludes .DS_Store and other system files. Respects DRY_RUN mode.
-# ARGS:     $1 = backup filename (without extension), $2... = directories
-# OUTPUT:   Prints backup file path to stdout on success
-# ----------------------------------------------------------------------------
 create_backup()
 {
     local backup_name="$1"
@@ -393,13 +286,6 @@ create_backup()
     fi
 }
 
-# ============================================================================
-# SECTION: ARRAY/LIST UTILITIES
-# ============================================================================
-
-# Check if an array contains a specific value
-# Args: $1 = value to search for, $2... = array elements
-# Returns: 0 if found, 1 if not
 array_contains()
 {
     local search="$1"
@@ -415,22 +301,5 @@ array_contains()
     return 1
 }
 
-# ============================================================================
-# SECTION: DATE/TIME UTILITIES
-# ============================================================================
-
-# Get current timestamp in filename-safe format (e.g., "2026-01-16_14-30-45")
-get_timestamp()
-{
-    date '+%Y-%m-%d_%H-%M-%S'
-}
-
-# Get current date in ISO format (e.g., "2026-01-16")
-get_date()
-{
-    date '+%Y-%m-%d'
-}
-
-# ============================================================================
-# END OF UTILS.SH
-# ============================================================================
+get_timestamp() { date '+%Y-%m-%d_%H-%M-%S'; }
+get_date()      { date '+%Y-%m-%d'; }

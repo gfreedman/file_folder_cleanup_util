@@ -1,27 +1,8 @@
 #!/bin/bash
-# ============================================================================
-# FILE:        generate_plan.sh
-# PURPOSE:     Phase 3 - Generate migration plan and scripts
-# DESCRIPTION: Takes analysis and structure from previous phases and generates:
-#              1. manifest.txt - Complete audit trail of all planned moves
-#              2. execute.sh - The actual migration script (with dry-run)
-#              3. reversal.sh - Script to undo all changes
-#              4. backup.tar.gz - Full backup of source folders (optional)
-#
-# USAGE:       ./generate_plan.sh --sources <dir1,dir2> --target <dir>
-#                                 --structure <file> [--mapping <file>]
-#                                 [--analysis <file>]
-#
-# OUTPUT:      Creates 4 files in OUTPUT_DIR
-# NOTE:        This phase WRITES files but does NOT move any user files.
-# ============================================================================
+# Phase 3: Writes 4 files (manifest, execute script, reversal script, backup). No user files moved.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
-
-# ============================================================================
-# SECTION: CONFIGURATION
-# ============================================================================
 
 TIMESTAMP=$(get_timestamp)
 MANIFEST_FILE=""
@@ -31,11 +12,6 @@ BACKUP_FILE=""
 
 declare -a MAPPING_RULES=()
 
-# ============================================================================
-# SECTION: MAPPING FUNCTIONS
-# ============================================================================
-
-# Load default file-to-folder mapping rules
 load_default_mappings()
 {
     MAPPING_RULES=(
@@ -97,8 +73,6 @@ load_default_mappings()
     )
 }
 
-# Load custom mapping rules from a file
-# Args: $1 = mapping file path
 load_mapping_file()
 {
     local mapping_file="$1"
@@ -126,9 +100,6 @@ load_mapping_file()
     log_success "Loaded ${#MAPPING_RULES[@]} mapping rules"
 }
 
-# Determine destination folder for a file based on mapping rules
-# Args: $1 = source file path, $2 = target root directory
-# Output: Prints full destination path
 get_destination()
 {
     local source_path="$1"
@@ -160,24 +131,11 @@ get_destination()
         fi
     done
 
-    # Default: put in root of target with original filename
+    # No rule matched — drop in root of target.
     echo "${target_root}/${filename}"
 }
 
-# ============================================================================
-# SECTION: MANIFEST GENERATION
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: generate_manifest
-# PURPOSE:  Create a detailed manifest of all planned moves. If an analysis
-#           export file is provided, reads the file list from it instead of
-#           re-running find (eliminates duplicate traversals).
-# ARGS:     $1 = manifest file path
-#           $2 = target directory
-#           $3 = analysis file path (optional, "" to skip)
-#           $4... = source directories
-# ----------------------------------------------------------------------------
+# Uses analysis export when available to avoid re-traversing the source dirs.
 generate_manifest()
 {
     local manifest_file="$1"
@@ -188,7 +146,6 @@ generate_manifest()
 
     log_info "Generating manifest: $manifest_file"
 
-    # Write manifest header
     {
         echo "# ============================================================================"
         echo "# FILE REORGANIZATION MANIFEST"
@@ -220,11 +177,9 @@ generate_manifest()
 
     declare -A destination_map
 
-    # If analysis file is available, read file list from it
     if [[ -n "$analysis_file" && -f "$analysis_file" ]]
     then
         log_info "Reading file list from analysis export: $analysis_file"
-
         {
             while IFS='|' read -r type data
             do
@@ -261,7 +216,6 @@ generate_manifest()
             done < "$analysis_file"
         } >> "$manifest_file"
     else
-        # Fall back to find traversal
         for source_dir in "${source_dirs[@]}"
         do
             log_info "Processing: $source_dir"
@@ -303,17 +257,7 @@ generate_manifest()
     log_success "Manifest generated with $(grep -c '^PLANNED\|^CONFLICT\|^DUPLICATE\|^LARGE' "$manifest_file") entries"
 }
 
-# ============================================================================
-# SECTION: SCRIPT GENERATION
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: generate_execute_script
-# PURPOSE:  Create the migration execution script. The generated script reads
-#           moves from the manifest at runtime rather than inlining paths,
-#           which eliminates shell injection vectors and produces a smaller script.
-# ARGS:     $1 = script file path, $2 = manifest file path
-# ----------------------------------------------------------------------------
+# Reads manifest at runtime (not inlined paths) — avoids shell injection and keeps the script small.
 generate_execute_script()
 {
     local script_file="$1"
@@ -325,24 +269,12 @@ generate_execute_script()
 
     cat > "$script_file" << 'HEADER'
 #!/bin/bash
-# ============================================================================
-# FILE:        execute.sh (auto-generated)
-# PURPOSE:     Execute the file reorganization
-# DESCRIPTION: This script reads moves from the manifest file and performs
-#              them. It runs in DRY-RUN mode by default for safety.
-#
-# USAGE:       ./execute.sh              # Dry run (preview)
-#              ./execute.sh --execute    # Actually move files
-#
-# WARNING:     Always run without --execute first to preview changes!
-# ============================================================================
+# Auto-generated by generate_plan.sh. Dry-run by default; pass --execute to move files.
 
-set -e  # Exit on error
+set -e
 
-# Default to dry-run mode (safe)
 DRY_RUN=1
 
-# Parse arguments
 if [[ "${1:-}" == "--execute" ]]
 then
     DRY_RUN=0
@@ -360,18 +292,15 @@ else
     echo ""
 fi
 
-# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Counters
 moved=0
 skipped=0
 failed=0
 
-# Logging
 log_file="execution_log_$(date +%Y-%m-%d_%H-%M-%S).txt"
 
 log()
@@ -382,12 +311,7 @@ log()
 
 HEADER
 
-    # Write the manifest-reading move logic
     cat >> "$script_file" << MANIFEST_READER
-
-# ============================================================================
-# FILE MOVES (read from manifest)
-# ============================================================================
 
 MANIFEST_FILE="\$(dirname "\$0")/${manifest_basename}"
 
@@ -399,7 +323,6 @@ fi
 
 while IFS='|' read -r status source dest notes
 do
-    # Skip header lines, comments, and non-planned entries
     [[ "\$status" =~ ^# ]] && continue
     [[ "\$status" != "PLANNED" ]] && continue
     [[ -z "\$source" ]] && continue
@@ -417,26 +340,21 @@ do
             if mv "\$source" "\$dest"
             then
                 log "MOVED: \$source -> \$dest"
-                ((moved++))
+                moved=\$(( moved + 1 ))
             else
                 log "FAILED: \$source"
-                ((failed++))
+                failed=\$(( failed + 1 ))
             fi
         fi
     else
         log "SKIPPED (not found): \$source"
-        ((skipped++))
+        skipped=\$(( skipped + 1 ))
     fi
 done < "\$MANIFEST_FILE"
 
 MANIFEST_READER
 
-    # Add summary section
     cat >> "$script_file" << 'FOOTER'
-
-# ============================================================================
-# SUMMARY
-# ============================================================================
 
 echo ""
 echo "=============================================="
@@ -462,11 +380,8 @@ FOOTER
     log_success "Execute script generated"
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: generate_reversal_script
-# PURPOSE:  Create a script to undo all moves. Reads from manifest at runtime.
-# ARGS:     $1 = script file path, $2 = manifest file path
-# ----------------------------------------------------------------------------
+# LIFO order: reversal must process manifest bottom-up so children are restored
+# before their parent directories are checked/removed.
 generate_reversal_script()
 {
     local script_file="$1"
@@ -478,14 +393,7 @@ generate_reversal_script()
 
     cat > "$script_file" << REVERSAL_SCRIPT
 #!/bin/bash
-# ============================================================================
-# FILE:        reversal.sh (auto-generated)
-# PURPOSE:     Undo the file reorganization
-# DESCRIPTION: Reads the manifest and moves files back to their original
-#              locations. Processes in reverse order (LIFO).
-#
-# USAGE:       ./reversal.sh
-# ============================================================================
+# Auto-generated reversal script. Moves files back to original locations (LIFO order).
 
 set -e
 
@@ -511,7 +419,6 @@ then
     exit 1
 fi
 
-# Read manifest in reverse order
 reverse_lines()
 {
     if command -v tac &> /dev/null
@@ -550,12 +457,6 @@ REVERSAL_SCRIPT
     log_success "Reversal script generated"
 }
 
-# ============================================================================
-# SECTION: BACKUP GENERATION
-# ============================================================================
-
-# Create a tar.gz backup of source directories
-# Args: $1 = backup file path (without extension), $2... = directories
 generate_backup()
 {
     local backup_path="$1"
@@ -585,10 +486,6 @@ generate_backup()
         return 1
     fi
 }
-
-# ============================================================================
-# SECTION: MAIN EXECUTION
-# ============================================================================
 
 main()
 {

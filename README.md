@@ -20,8 +20,8 @@ This tool follows three core principles:
 
 ## Requirements
 
-- macOS (uses BSD versions of `find`, `stat`, `md5`, etc.)
-- Bash 3.2+ (ships with macOS)
+- macOS (uses BSD versions of `find`, `stat`, `shasum`, etc.)
+- **Bash 4+** (macOS ships with 3.2 — install via `brew install bash`)
 - Claude Code CLI (for the interactive workflow)
 
 ## Quick Start
@@ -157,6 +157,12 @@ file_folder_cleanup_util/
 └── claude_code/
     └── CLAUDE.md             # Claude Code instructions
 ```
+
+## Known Limitations
+
+- **Symlinks are not moved.** All phases use `find -type f`, which matches only regular files. Symlinks in source directories are silently skipped. If you have important symlinks, move them manually after the migration.
+- **macOS only.** Uses BSD `stat`, `shasum`, and `find` syntax. Not compatible with Linux GNU coreutils without modification.
+- **Bash 4+ required.** macOS ships Bash 3.2; install a newer version via `brew install bash`.
 
 ## License
 

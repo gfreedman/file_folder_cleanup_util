@@ -1,29 +1,18 @@
 #!/bin/bash
-# ============================================================================
-# FILE:        cleanup.sh
-# PURPOSE:     Main entry point for the File Folder Cleanup Utility
-# DESCRIPTION: This script orchestrates the complete cleanup workflow,
-#              running all four phases in sequence. It can also run
-#              individual phases as needed.
-#
-# USAGE:       ./cleanup.sh --sources ~/Desktop,~/Downloads --target ~/Documents
-#              ./cleanup.sh --phase analyze --sources ~/Desktop,~/Downloads
-#              ./cleanup.sh --help
-#
-# NOTE:        This tool is designed to work with Claude Code for an
-#              interactive, conversational experience.
-# ============================================================================
+# Main entry point — orchestrates the 4-phase cleanup workflow.
 
-# Get the directory where this script is located
-# This allows us to find other scripts regardless of where cleanup.sh is called from
+# Bash 4+ required for associative arrays. macOS ships Bash 3.2.
+if (( BASH_VERSINFO[0] < 4 )); then
+    echo "Error: Bash 4+ required (you have ${BASH_VERSION})" >&2
+    echo "Fix:   brew install bash" >&2
+    echo "Then:  /opt/homebrew/bin/bash $(basename "$0") $*" >&2
+    exit 1
+fi
+
+# Resolve script location so other scripts are found regardless of call site.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source the utility functions for logging
 source "${SCRIPT_DIR}/src/utils.sh"
-
-# ============================================================================
-# SECTION: HELP AND VERSION
-# ============================================================================
 
 VERSION="1.0.0"
 
@@ -92,11 +81,6 @@ show_version()
     echo "File Folder Cleanup Utility v${VERSION}"
 }
 
-# ============================================================================
-# SECTION: ARGUMENT PARSING
-# ============================================================================
-
-# Default values
 SOURCES=""
 TARGET=""
 TEMPLATE=""
@@ -159,13 +143,8 @@ parse_arguments()
     done
 }
 
-# ============================================================================
-# SECTION: VALIDATION
-# ============================================================================
-
 validate_inputs()
 {
-    # For analyze phase, only sources are required
     if [[ "$PHASE" == "analyze" ]]
     then
         if [[ -z "$SOURCES" ]]
@@ -176,7 +155,6 @@ validate_inputs()
         return 0
     fi
 
-    # For execute phase with script, only script is required
     if [[ "$PHASE" == "execute" && -n "$EXECUTE_SCRIPT" ]]
     then
         if [[ ! -f "$EXECUTE_SCRIPT" ]]
@@ -187,7 +165,6 @@ validate_inputs()
         return 0
     fi
 
-    # For full workflow or generate phase, both sources and target required
     if [[ "$PHASE" == "all" || "$PHASE" == "generate" ]]
     then
         if [[ -z "$SOURCES" ]]
@@ -203,15 +180,10 @@ validate_inputs()
     fi
 }
 
-# ============================================================================
-# SECTION: PHASE RUNNERS
-# ============================================================================
-
 run_analyze()
 {
     log_header "Running Phase 1: Analyze"
 
-    # Convert comma-separated sources to space-separated for the script
     local sources_array
     IFS=',' read -ra sources_array <<< "$SOURCES"
 
@@ -247,10 +219,8 @@ run_execute()
 
     if [[ -n "$EXECUTE_SCRIPT" ]]
     then
-        # Run specific script
         bash "${SCRIPT_DIR}/src/execute.sh" "$EXECUTE_SCRIPT" --$EXECUTE_MODE
     else
-        # Find the most recent execute script in output dir
         local latest_script
         latest_script=$(ls -t "${OUTPUT_DIR}"/execute_*.sh 2>/dev/null | head -1)
 
@@ -265,10 +235,6 @@ run_execute()
         bash "${SCRIPT_DIR}/src/execute.sh" "$latest_script" --$EXECUTE_MODE
     fi
 }
-
-# ============================================================================
-# SECTION: MAIN WORKFLOW
-# ============================================================================
 
 run_full_workflow()
 {
@@ -286,7 +252,6 @@ run_full_workflow()
     [[ -n "$TEMPLATE" ]] && echo "  Template: $TEMPLATE"
     echo ""
 
-    # Phase 1: Analyze
     run_analyze
 
     echo ""
@@ -297,7 +262,6 @@ run_full_workflow()
         exit 0
     fi
 
-    # Phase 2: Propose
     run_propose
 
     echo ""
@@ -308,7 +272,6 @@ run_full_workflow()
         exit 0
     fi
 
-    # Phase 3: Generate
     run_generate
 
     echo ""
@@ -319,7 +282,6 @@ run_full_workflow()
         exit 0
     fi
 
-    # Phase 4: Execute (dry-run first)
     EXECUTE_MODE="dry-run"
     run_execute
 
@@ -334,22 +296,13 @@ run_full_workflow()
     fi
 }
 
-# ============================================================================
-# SECTION: MAIN ENTRY POINT
-# ============================================================================
-
 main()
 {
-    # Parse command line arguments
     parse_arguments "$@"
-
-    # Validate inputs
     validate_inputs
 
-    # Export OUTPUT_DIR for child scripts
     export CLEANUP_OUTPUT_DIR="$OUTPUT_DIR"
 
-    # Run appropriate phase(s)
     case "$PHASE" in
         analyze)
             run_analyze
@@ -374,5 +327,4 @@ main()
     esac
 }
 
-# Run main function with all command line arguments
 main "$@"

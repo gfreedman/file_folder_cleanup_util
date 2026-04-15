@@ -1,35 +1,14 @@
 #!/bin/bash
-# ============================================================================
-# FILE:        execute.sh
-# PURPOSE:     Phase 4 - Execute the migration (wrapper script)
-# DESCRIPTION: This is a convenience wrapper that runs the generated
-#              execute script from Phase 3. It provides additional safety
-#              checks and can run in dry-run or execute mode.
-#
-# USAGE:       ./execute.sh <generated_script.sh> [--dry-run|--execute]
-#
-# NOTE:        The actual move logic is in the generated script.
-#              This wrapper adds pre-flight checks and post-flight verification.
-# ============================================================================
+# Phase 4 wrapper: pre-flight checks, runs generated execute script, post-flight verification.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
 
-# ============================================================================
-# SECTION: PRE-FLIGHT CHECKS
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: verify_backup_exists
-# PURPOSE:  Check that a backup was created before execution
-# ARGS:     $1 = expected backup file path
-# RETURNS:  0 if backup exists, 1 if not
-# ----------------------------------------------------------------------------
 verify_backup_exists()
 {
     local backup_pattern="$1"
 
-    # Use array glob to avoid unquoted word-splitting
+    # Array glob avoids unquoted word-splitting on the pattern.
     local -a matches=( "${backup_pattern}"*.tar.gz )
     if [[ -f "${matches[0]:-}" ]]
     then
@@ -41,12 +20,6 @@ verify_backup_exists()
     return 1
 }
 
-# ----------------------------------------------------------------------------
-# FUNCTION: verify_manifest_exists
-# PURPOSE:  Check that the manifest file exists
-# ARGS:     $1 = manifest file path
-# RETURNS:  0 if exists, 1 if not
-# ----------------------------------------------------------------------------
 verify_manifest_exists()
 {
     local manifest_file="$1"
@@ -63,15 +36,6 @@ verify_manifest_exists()
     return 0
 }
 
-# ============================================================================
-# SECTION: POST-FLIGHT VERIFICATION
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: verify_execution
-# PURPOSE:  Check that files were moved correctly
-# ARGS:     $1 = manifest file path
-# ----------------------------------------------------------------------------
 verify_execution()
 {
     local manifest_file="$1"
@@ -114,22 +78,12 @@ verify_execution()
     fi
 }
 
-# ============================================================================
-# SECTION: CLEANUP
-# ============================================================================
-
-# ----------------------------------------------------------------------------
-# FUNCTION: cleanup_empty_directories
-# PURPOSE:  Remove empty directories from source locations
-# ARGS:     $1 = manifest file path
-# ----------------------------------------------------------------------------
 cleanup_empty_directories()
 {
     local manifest_file="$1"
 
     log_info "Cleaning up empty directories..."
 
-    # Extract unique source directories from manifest
     local source_dirs
     source_dirs=$(grep '^SOURCE_DIRS|' "$manifest_file" | cut -d'|' -f2)
 
@@ -137,7 +91,6 @@ cleanup_empty_directories()
     do
         if [[ -d "$dir" ]]
         then
-            # Remove empty directories recursively
             find "$dir" -type d -empty -delete 2>/dev/null
             log_info "Cleaned up: $dir"
         fi
@@ -145,10 +98,6 @@ cleanup_empty_directories()
 
     log_success "Cleanup complete"
 }
-
-# ============================================================================
-# SECTION: MAIN EXECUTION
-# ============================================================================
 
 main()
 {
@@ -159,7 +108,6 @@ main()
     local manifest_file=""
     local skip_backup_check=0
 
-    # Parse arguments
     while [[ $# -gt 0 ]]
     do
         case "$1" in
@@ -190,7 +138,6 @@ main()
         esac
     done
 
-    # Validate execute script
     if [[ -z "$execute_script" ]]
     then
         log_error "Usage: $0 <execute_script.sh> [--dry-run|--execute]"
@@ -203,10 +150,9 @@ main()
         exit 1
     fi
 
-    # Infer manifest file if not provided
+    # Infer manifest from the execute script's timestamp suffix.
     if [[ -z "$manifest_file" ]]
     then
-        # Try to find manifest with same timestamp
         local base_name
         base_name=$(basename "$execute_script" .sh | sed 's/execute_//')
         manifest_file="$(dirname "$execute_script")/manifest_${base_name}.txt"
@@ -223,12 +169,10 @@ main()
     [[ -n "$manifest_file" ]] && echo "Manifest: $manifest_file"
     echo ""
 
-    # Pre-flight checks
     if [[ "$mode" == "execute" ]]
     then
         log_info "Running pre-flight checks..."
 
-        # Check backup exists (unless skipped)
         if [[ $skip_backup_check -eq 0 ]]
         then
             local backup_pattern
@@ -245,7 +189,6 @@ main()
             fi
         fi
 
-        # Verify manifest
         if [[ -n "$manifest_file" ]]
         then
             verify_manifest_exists "$manifest_file"
@@ -254,7 +197,6 @@ main()
         echo ""
     fi
 
-    # Run the execute script
     log_info "Running execute script..."
     echo ""
 
@@ -267,18 +209,15 @@ main()
 
     local exit_code=$?
 
-    # Post-flight actions (only if actually executed)
     if [[ "$mode" == "execute" && $exit_code -eq 0 ]]
     then
         echo ""
 
-        # Verify execution
         if [[ -n "$manifest_file" ]]
         then
             verify_execution "$manifest_file"
         fi
 
-        # Cleanup empty directories
         if [[ -n "$manifest_file" ]]
         then
             echo ""
