@@ -373,17 +373,8 @@ Archives/"
 
     display_structure "$structure"
 
-    if [[ -n "${OUTPUT_DIR:-}" ]]
-    then
-        # Clean up timestamped structure files from previous runs.
-        local old_structure
-        for old_structure in "${OUTPUT_DIR}"/structure_[0-9][0-9][0-9][0-9]-*.txt
-        do
-            [[ -f "$old_structure" ]] && rm -f "$old_structure"
-        done
-
-        export_structure "${OUTPUT_DIR}/structure_latest.txt" "$target_dir" "$structure"
-    fi
+    # Structure is displayed for user review and confirmed interactively.
+    # Nothing downstream reads a structure file — no export needed.
 
     log_success "Structure proposal complete!"
     echo ""

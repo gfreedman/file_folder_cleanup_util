@@ -70,7 +70,7 @@ Present the summary to the user:
 
 Either:
 - Use a template: `--template personal` or `--template business` or `--template minimal`
-- Auto-suggest based on file types: `--auto --analysis ~/tmp-cleanup/analysis_latest.txt`
+- Auto-suggest based on file types: `--auto` (generate_plan.sh auto-detects the analysis from the scratch dir — no `--analysis` flag needed)
 - Let the user define custom structure
 
 ```bash

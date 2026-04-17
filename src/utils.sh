@@ -35,6 +35,10 @@ DRY_RUN="${CLEANUP_DRY_RUN:-1}"          # default on for safety
 CREATE_BACKUP="${CLEANUP_CREATE_BACKUP:-1}"
 OUTPUT_DIR="${CLEANUP_OUTPUT_DIR:-.}"
 
+# Scratch dir for inter-phase data (analysis export). Lives in the system
+# temp directory — macOS purges it automatically. Never written to OUTPUT_DIR.
+SCRATCH_DIR="${TMPDIR:-/tmp}/file_cleanup_scratch"
+
 FIND_EXCLUDES=(
     ! -name '.DS_Store'
     ! -name '.localized'

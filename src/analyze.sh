@@ -302,16 +302,10 @@ main()
 
     print_summary
 
-    # Clean up timestamped analysis files from previous runs before writing
-    # the new one. analysis_latest.txt is a scratch file, not an audit record —
-    # only one copy is needed at a time.
-    local old_analysis
-    for old_analysis in "${OUTPUT_DIR}"/analysis_[0-9][0-9][0-9][0-9]-*.txt
-    do
-        [[ -f "$old_analysis" ]] && rm -f "$old_analysis"
-    done
-
-    export_analysis "${OUTPUT_DIR}/analysis_latest.txt"
+    # Write analysis to the scratch directory, not the output directory.
+    # Scratch is inter-phase plumbing; output is for user deliverables only.
+    mkdir -p "$SCRATCH_DIR"
+    export_analysis "${SCRATCH_DIR}/analysis.txt"
 
     log_success "Analysis complete!"
 

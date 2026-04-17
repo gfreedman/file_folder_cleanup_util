@@ -597,6 +597,13 @@ main()
         done
     fi
 
+    # If no --analysis flag was passed, check for the scratch file written by analyze.sh.
+    if [[ -z "$analysis_file" && -f "${SCRATCH_DIR}/analysis.txt" ]]
+    then
+        analysis_file="${SCRATCH_DIR}/analysis.txt"
+        log_info "Using analysis from scratch: $analysis_file"
+    fi
+
     # Warn if output is cloud-synced — backup contains all source files.
     warn_if_cloud_synced "$OUTPUT_DIR"
     MANIFEST_FILE="${OUTPUT_DIR}/manifest_${TIMESTAMP}.txt"
