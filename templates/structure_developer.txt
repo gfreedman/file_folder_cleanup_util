@@ -7,7 +7,7 @@ Scripts/
 Scripts/Utilities/
 Scripts/Snippets/
 
-# Reference material: PDFs, articles, ebooks, saved docs
+# Reference material (PDFs, articles, ebooks, saved docs)
 Reference/
 Reference/Books/
 Reference/Articles/
