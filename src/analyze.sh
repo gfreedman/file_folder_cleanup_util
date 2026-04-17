@@ -4,6 +4,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
 
+set -e
+
 declare -a ALL_FILES=()
 declare -a LARGE_FILES=()
 declare -a DUPLICATE_GROUPS=()
@@ -23,7 +25,7 @@ scan_directory()
     log_info "Scanning: $dir_path"
 
     local dir_count
-    dir_count=$(find "$dir_path" -type d ! -name '.*' 2>/dev/null | wc -l | tr -d ' ')
+    dir_count=$(find "$dir_path" -type d ! -name '.*' 2>/dev/null | wc -l | tr -d ' ' || echo "0")
     TOTAL_DIRS=$((TOTAL_DIRS + dir_count))
 
     local dir_file_count=0
@@ -300,10 +302,9 @@ main()
 
     print_summary
 
-    if [[ -n "${OUTPUT_DIR:-}" && "$OUTPUT_DIR" != "." ]]
-    then
-        export_analysis "${OUTPUT_DIR}/analysis_$(get_timestamp).txt"
-    fi
+    # Always export an audit record of the analysis phase.
+    # OUTPUT_DIR defaults to '.' (current directory) if CLEANUP_OUTPUT_DIR is not set.
+    export_analysis "${OUTPUT_DIR}/analysis_$(get_timestamp).txt"
 
     log_success "Analysis complete!"
 

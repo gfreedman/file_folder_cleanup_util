@@ -4,6 +4,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
 
+set -e
+
 TEMPLATES_DIR="${SCRIPT_DIR}/../templates"
 
 load_template()
@@ -336,7 +338,10 @@ main()
                 1)
                     list_templates
                     read -r -p "Template name: " template_name
-                    structure=$(load_template "$template_name")
+                    if ! structure=$(load_template "$template_name")
+                    then
+                        exit 1
+                    fi
                     ;;
                 2)
                     if [[ -z "$analysis_file" ]]

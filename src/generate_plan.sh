@@ -4,6 +4,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
 
+set -e
+
 TIMESTAMP=$(get_timestamp)
 MANIFEST_FILE=""
 EXECUTE_SCRIPT=""
@@ -256,7 +258,7 @@ generate_manifest()
         done
     fi
 
-    log_success "Manifest generated with $(grep -c '^PLANNED\|^CONFLICT\|^DUPLICATE\|^LARGE' "$manifest_file") entries"
+    log_success "Manifest generated with $(grep -c '^PLANNED\|^CONFLICT\|^DUPLICATE\|^LARGE' "$manifest_file" || echo "0") entries"
 }
 
 # Reads manifest at runtime (not inlined paths) — avoids shell injection and keeps the script small.
@@ -266,6 +268,14 @@ generate_execute_script()
     local manifest_file="$2"
     local manifest_basename
     manifest_basename=$(basename "$manifest_file")
+
+    # Validate before interpolating into the generated shell script.
+    if [[ ! "$manifest_basename" =~ ^[A-Za-z0-9._-]+$ ]]
+    then
+        log_error "Manifest filename contains unexpected characters: $manifest_basename"
+        log_error "Ensure CLEANUP_OUTPUT_DIR contains only alphanumeric characters, dots, dashes, or underscores."
+        exit 1
+    fi
 
     log_info "Generating execute script: $script_file"
 
@@ -392,6 +402,12 @@ generate_reversal_script()
     local manifest_file="$2"
     local manifest_basename
     manifest_basename=$(basename "$manifest_file")
+
+    if [[ ! "$manifest_basename" =~ ^[A-Za-z0-9._-]+$ ]]
+    then
+        log_error "Manifest filename contains unexpected characters: $manifest_basename"
+        exit 1
+    fi
 
     log_info "Generating reversal script: $script_file"
 
@@ -580,6 +596,9 @@ main()
             fi
         done
     fi
+
+    # Warn if output is cloud-synced — backup contains all source files.
+    warn_if_cloud_synced "$OUTPUT_DIR"
     MANIFEST_FILE="${OUTPUT_DIR}/manifest_${TIMESTAMP}.txt"
     EXECUTE_SCRIPT="${OUTPUT_DIR}/execute_${TIMESTAMP}.sh"
     REVERSAL_SCRIPT="${OUTPUT_DIR}/reversal_${TIMESTAMP}.sh"
@@ -600,6 +619,14 @@ main()
     fi
 
     generate_manifest "$MANIFEST_FILE" "$target_dir" "${analysis_file:-}" "${source_dirs[@]}"
+
+    # Lock manifest against modification and write a SHA-256 sidecar.
+    # The sidecar is written with a path relative to OUTPUT_DIR so integrity
+    # checks succeed even if the directory is renamed after generation.
+    (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$MANIFEST_FILE")") > "${MANIFEST_FILE}.sha256"
+    chmod 444 "$MANIFEST_FILE"
+    log_success "Manifest locked: $(basename "${MANIFEST_FILE}.sha256") written"
+
     generate_execute_script "$EXECUTE_SCRIPT" "$MANIFEST_FILE"
     generate_reversal_script "$REVERSAL_SCRIPT" "$MANIFEST_FILE"
     generate_backup "$BACKUP_FILE" "${source_dirs[@]}"

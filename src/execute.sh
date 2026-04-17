@@ -4,6 +4,36 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/utils.sh"
 
+set -e
+
+verify_manifest_integrity()
+{
+    local manifest_file="$1"
+    local sidecar="${manifest_file}.sha256"
+    local manifest_dir
+    manifest_dir=$(dirname "$manifest_file")
+
+    if [[ ! -f "$sidecar" ]]
+    then
+        log_warn "No integrity sidecar found (${sidecar}). Skipping verification."
+        log_warn "This is expected for manifests generated before this version."
+        return 0
+    fi
+
+    # Run shasum -c from the manifest directory so the relative path in the
+    # sidecar (written by generate_plan.sh) resolves correctly.
+    if (cd "$manifest_dir" && shasum -a 256 -c "$(basename "$sidecar")" > /dev/null 2>&1)
+    then
+        log_success "Manifest integrity verified"
+        return 0
+    else
+        log_error "Manifest integrity check FAILED: $(basename "$manifest_file")"
+        log_error "The manifest may have been modified after generation."
+        log_error "Do not proceed. Re-run generate_plan.sh to create a fresh manifest."
+        return 1
+    fi
+}
+
 verify_backup_exists()
 {
     local backup_pattern="$1"
@@ -85,7 +115,7 @@ cleanup_empty_directories()
     log_info "Cleaning up empty directories..."
 
     local source_dirs_raw
-    source_dirs_raw=$(grep '^SOURCE_DIRS|' "$manifest_file" | cut -d'|' -f2-)
+    source_dirs_raw=$(grep '^SOURCE_DIRS|' "$manifest_file" | cut -d'|' -f2- || true)
 
     while IFS= read -r dir
     do
@@ -193,6 +223,7 @@ main()
         if [[ -n "$manifest_file" ]]
         then
             verify_manifest_exists "$manifest_file"
+            verify_manifest_integrity "$manifest_file"
         fi
 
         echo ""

@@ -138,10 +138,44 @@ get_file_size()
     stat -f "%z" "$file_path" 2>/dev/null || echo "0"
 }
 
+# Warn (non-blocking) when the output directory resolves to a known
+# cloud-sync location. The backup tarball contains all source files
+# and must not be silently uploaded.
+warn_if_cloud_synced()
+{
+    local dir_path="$1"
+    local abs_path
+    abs_path=$(cd "$dir_path" 2>/dev/null && pwd) || return 0
+
+    # ~/Library/CloudStorage covers Dropbox, OneDrive, GDrive on Ventura+.
+    # ~/Library/Mobile Documents covers iCloud Drive on all macOS versions.
+    local cloud_patterns=(
+        "$HOME/Library/Mobile Documents"
+        "$HOME/Library/CloudStorage"
+        "$HOME/Dropbox"
+        "$HOME/Google Drive"
+        "$HOME/OneDrive"
+        "$HOME/Box"
+        "$HOME/Box Sync"
+    )
+
+    for pattern in "${cloud_patterns[@]}"
+    do
+        if [[ "$abs_path" == "$pattern" || "$abs_path" == "$pattern/"* ]]
+        then
+            log_warn "Output directory may be cloud-synced: $abs_path"
+            log_warn "The backup archive contains all source files and will be uploaded to cloud storage."
+            log_warn "Consider using a local path instead, e.g.: ~/tmp-cleanup/"
+            return 0
+        fi
+    done
+}
+
 get_file_hash()
 {
     local file_path="$1"
-    shasum -a 256 "$file_path" 2>/dev/null | cut -d' ' -f1
+    # || true: an unreadable file returns empty string; callers check for that.
+    shasum -a 256 "$file_path" 2>/dev/null | cut -d' ' -f1 || true
 }
 
 # Pure integer arithmetic — avoids bc/awk dependency.
