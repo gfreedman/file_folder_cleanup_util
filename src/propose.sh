@@ -172,13 +172,18 @@ validate_structure()
         return 1
     fi
 
-    if echo "$structure" | grep -qE '[<>:"|?*]'
+    # Strip comments before validation — comments may legitimately contain
+    # characters (colons, pipes) that are invalid in folder paths.
+    local paths_only
+    paths_only=$(echo "$structure" | grep -v '^#' | grep -v '^$')
+
+    if echo "$paths_only" | grep -qE '[<>:"|?*]'
     then
         log_error "Structure contains invalid characters"
         return 1
     fi
 
-    if echo "$structure" | grep -qE '^/'
+    if echo "$paths_only" | grep -qE '^/'
     then
         log_warn "Paths should be relative, not absolute"
     fi
@@ -217,28 +222,6 @@ display_structure()
     done
 
     echo ""
-}
-
-export_structure()
-{
-    local output_file="$1"
-    local target_dir="$2"
-    local structure="$3"
-
-    log_info "Exporting structure to: $output_file"
-
-    {
-        echo "# Structure Definition - $(get_timestamp)"
-        echo ""
-        echo "TARGET_DIR|$target_dir"
-        echo ""
-        echo "$structure" | grep -v '^#' | grep -v '^$' | while read -r path
-        do
-            echo "FOLDER|$path"
-        done
-    } > "$output_file"
-
-    log_success "Structure exported"
 }
 
 main()
