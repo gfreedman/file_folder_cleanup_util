@@ -1,0 +1,36 @@
+# Developer File Organization Structure
+# For engineers cleaning up Desktop/Downloads — loose files, not code repos.
+# Your git repositories should stay in their existing location (~/code, ~/dev, etc.)
+
+# Loose scripts and code snippets (not full projects)
+Scripts/
+Scripts/Utilities/
+Scripts/Snippets/
+
+# Reference material: PDFs, articles, ebooks, saved docs
+Reference/
+Reference/Books/
+Reference/Articles/
+Reference/Docs/
+
+# Screenshots, screen recordings, and design exports
+Media/
+Media/Screenshots/
+Media/Recordings/
+Media/Design/
+
+# Downloaded software, disk images, and fonts
+Downloads/
+Downloads/Installers/
+Downloads/Fonts/
+Downloads/Assets/
+
+# Data exports, datasets, and CSVs
+Data/
+Data/Exports/
+Data/Datasets/
+
+# Archives
+Archives/
+Archives/Projects/
+Archives/Backups/
