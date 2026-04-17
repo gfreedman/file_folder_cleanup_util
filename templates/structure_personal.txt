@@ -1,7 +1,5 @@
 # Personal File Organization Structure
-# Designed for organizing personal documents, media, and files
-#
-# This template creates a comprehensive hierarchy for personal use.
+# Designed for organizing personal documents, media, and files.
 # Modify as needed for your specific situation.
 
 # Personal documents and records
@@ -26,7 +24,7 @@ Financial/Insurance/
 Financial/Investments/
 Financial/Receipts/
 
-# Professional/Work documents
+# Professional documents
 Professional/
 Professional/Resume/
 Professional/References/
@@ -38,7 +36,7 @@ Media/
 Media/Images/
 Media/Images/Photos/
 Media/Images/Screenshots/
-Media/Images/Documents/
+Media/Images/Scans/
 Media/Audio/
 Media/Video/
 
@@ -47,12 +45,8 @@ Projects/
 Projects/Active/
 Projects/Archive/
 
-# Archives and backups
+# Archives and installers
 Archives/
 Archives/Software/
 Archives/Fonts/
 Archives/Data/
-Archives/Old/
-
-# Sensitive documents (consider encryption)
-Sensitive/

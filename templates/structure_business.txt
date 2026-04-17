@@ -1,14 +1,12 @@
 # Business/Work File Organization Structure
-# Designed for organizing work-related documents
-#
-# This template creates a hierarchy suited for professional use.
+# Designed for professionals, employees, and independent contractors.
+# Modify as needed — remove sections that don't apply to your role.
 
-# Client work
+# Client and project work
 Clients/
 Clients/Active/
 Clients/Archive/
 
-# Internal projects
 Projects/
 Projects/Active/
 Projects/Planning/
@@ -18,34 +16,21 @@ Projects/Completed/
 Admin/
 Admin/Contracts/
 Admin/Legal/
-Admin/HR/
 Admin/Finance/
 Admin/Insurance/
+Admin/HR/
 
-# Marketing materials
+# Reference and resources
+Resources/
+Resources/Reference/
+Resources/Training/
+Resources/SOPs/
+
+# Marketing and branding
 Marketing/
 Marketing/Branding/
 Marketing/Campaigns/
 Marketing/Content/
-Marketing/Analytics/
-
-# Sales
-Sales/
-Sales/Proposals/
-Sales/Contracts/
-Sales/Reports/
-
-# Operations
-Operations/
-Operations/Processes/
-Operations/Vendors/
-Operations/Reports/
-
-# Resources
-Resources/
-Resources/Templates/
-Resources/Training/
-Resources/Reference/
 
 # Media assets
 Assets/
@@ -54,7 +39,10 @@ Assets/Video/
 Assets/Audio/
 Assets/Logos/
 
-# Archives
-Archives/
-Archives/Old_Projects/
-Archives/Old_Clients/
+# Correspondence
+Correspondence/
+Correspondence/Emails/
+Correspondence/Letters/
+
+# Archives (use year subdirectories, e.g. Archive/2024/)
+Archive/
