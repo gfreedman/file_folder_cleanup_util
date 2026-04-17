@@ -84,17 +84,18 @@ cleanup_empty_directories()
 
     log_info "Cleaning up empty directories..."
 
-    local source_dirs
-    source_dirs=$(grep '^SOURCE_DIRS|' "$manifest_file" | cut -d'|' -f2)
+    local source_dirs_raw
+    source_dirs_raw=$(grep '^SOURCE_DIRS|' "$manifest_file" | cut -d'|' -f2-)
 
-    for dir in $source_dirs
+    while IFS= read -r dir
     do
+        [[ -z "$dir" ]] && continue
         if [[ -d "$dir" ]]
         then
             find "$dir" -type d -empty -delete 2>/dev/null
             log_info "Cleaned up: $dir"
         fi
-    done
+    done < <(echo "$source_dirs_raw" | tr ' ' '\n')
 
     log_success "Cleanup complete"
 }

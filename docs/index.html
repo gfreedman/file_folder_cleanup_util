@@ -4,32 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>File Folder Cleanup Utility — Safe, Reversible File Reorganization for macOS</title>
-  <meta name="description" content="Consolidate Desktop, Downloads, and more into a clean, organized structure — with full backup and one-command undo. No bash experience required.">
+  <meta name="description" content="Consolidate Desktop, Downloads, and more into a clean, organized structure — with full backup and one-command undo before a single file moves.">
   <style>
     /* ── RESET ───────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     /* ── TOKENS ──────────────────────────────────────────── */
     :root {
-      /* colors */
-      --bg:          #f9f8f4;
-      --bg-2:        #efede7;
-      --bg-3:        #e8e6df;
-      --text:        #131314;
-      --text-body:   #4a4843;
-      --text-muted:  #7a7770;
-      --accent:      #d97757;
-      --accent-dim:  #f0ddd5;
-      --border:      #dedad2;
-      --green:       #1d7a45;
-      --green-bg:    #e6f2eb;
-      --green-bright:#22c55e;
-      --term-bg:     #0d1117;
-      --term-bar:    #1a1f27;
+      /* Apple palette */
+      --bg:          #ffffff;
+      --bg-alt:      #f5f5f7;
+      --bg-2:        #f5f5f7;
+      --bg-3:        #e8e8ed;
+      --text:        #1d1d1f;
+      --text-body:   #6e6e73;
+      --text-muted:  #86868b;
+      --accent:      #0071e3;
+      --accent-dim:  #dbeafe;
+      --accent-hover:#0077ed;
+      --border:      #d2d2d7;
+      --green:       #248a3d;
+      --green-bg:    #e3f6e9;
+      --green-bright:#34c759;
+      --term-bg:     #1c1c1e;
+      --term-bar:    #2c2c2e;
       /* radii */
-      --r:     8px;
-      --r-sm:  6px;
-      --r-xs:  4px;
+      --r:     12px;
+      --r-sm:  8px;
+      --r-xs:  5px;
       /* spacing scale */
       --sp-1:  4px;
       --sp-2:  8px;
@@ -42,7 +44,7 @@
       --sp-12: 48px;
       --sp-16: 64px;
       /* layout */
-      --max-w: 780px;
+      --max-w: 980px;
     }
 
     /* ── MOTION ──────────────────────────────────────────── */
@@ -57,11 +59,12 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 15px;
-      line-height: 1.65;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
     }
-    a { color: var(--accent); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
     p { color: var(--text-body); margin-bottom: var(--sp-3); }
     p:last-child { margin-bottom: 0; }
     strong { color: inherit; }
@@ -73,12 +76,12 @@
       left: 0;
       background: var(--accent);
       color: #fff;
-      font-weight: 700;
+      font-weight: 600;
       font-size: 14px;
       padding: var(--sp-2) var(--sp-4);
       z-index: 999;
       text-decoration: none;
-      border-radius: 0 0 var(--r) 0;
+      border-radius: 0 0 var(--r-sm) 0;
     }
     .skip-link:focus { top: 0; }
 
@@ -87,58 +90,46 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(249,248,244,0.88);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
     }
     .nav-inner {
       max-width: var(--max-w);
       margin: 0 auto;
-      padding: 0 clamp(16px, 4vw, 48px);
-      height: 52px;
+      padding: 0 22px;
+      height: 44px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: var(--sp-6);
     }
     .nav-brand {
-      font-weight: 700;
-      font-size: 14px;
+      font-weight: 600;
+      font-size: 17px;
       color: var(--text);
       text-decoration: none;
       white-space: nowrap;
       flex-shrink: 0;
     }
+    .nav-brand:hover { text-decoration: none; color: var(--text); }
     .nav-brand span { color: var(--accent); }
     .nav-links {
       display: flex;
-      gap: var(--sp-5);
+      gap: var(--sp-6);
       list-style: none;
     }
     .nav-links a {
       font-size: 13px;
-      font-weight: 500;
-      color: var(--text-body);
+      font-weight: 400;
+      color: var(--text);
       text-decoration: none;
-      transition: color .12s;
-      position: relative;
-      padding-bottom: 2px;
+      opacity: 0.76;
+      transition: opacity .12s, color .12s;
     }
-    .nav-links a::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 0; right: 0;
-      height: 2px;
-      background: var(--accent);
-      border-radius: 2px;
-      transform: scaleX(0);
-      transition: transform .15s;
-    }
-    .nav-links a:hover,
-    .nav-links a.active { color: var(--accent); }
-    .nav-links a.active::after { transform: scaleX(1); }
+    .nav-links a:hover { opacity: 1; text-decoration: none; }
+    .nav-links a.active { opacity: 1; color: var(--accent); }
 
     /* hamburger */
     .hamburger {
@@ -156,110 +147,115 @@
     }
     .hamburger span {
       display: block;
-      height: 2px;
-      background: var(--text-body);
+      height: 1.5px;
+      background: var(--text);
       border-radius: 2px;
       transition: transform .2s, opacity .15s;
     }
-    .hamburger[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger[aria-expanded="true"] span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
     .hamburger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
-    .hamburger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .hamburger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
 
-    @media (max-width: 560px) {
+    @media (max-width: 600px) {
       .hamburger { display: flex; }
       .nav-links {
         display: none;
         position: absolute;
-        top: 52px;
+        top: 44px;
         left: 0; right: 0;
-        background: var(--bg);
-        border-bottom: 1px solid var(--border);
+        background: rgba(255,255,255,0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(0,0,0,0.08);
         flex-direction: column;
         gap: 0;
-        padding: 0 clamp(16px, 4vw, 48px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        padding: 0 22px;
       }
       .nav-links.open { display: flex; }
-      .nav-links li { border-bottom: 1px solid var(--border); }
+      .nav-links li { border-bottom: 1px solid rgba(0,0,0,0.06); }
       .nav-links li:last-child { border-bottom: none; }
       .nav-links a {
         display: block;
         padding: 13px 0;
         font-size: 14px;
+        opacity: 1;
       }
-      .nav-links a::after { display: none; }
     }
 
     /* ── LAYOUT ──────────────────────────────────────────── */
     .container {
       max-width: var(--max-w);
       margin: 0 auto;
-      padding: 0 clamp(16px, 4vw, 48px);
+      padding: 0 22px;
     }
-    section { padding: var(--sp-16) 0; }
-    .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+    section { padding: 80px 0; }
+    section.section-alt { background: var(--bg-alt); }
 
     /* ── TYPOGRAPHY ──────────────────────────────────────── */
     h1 {
-      font-size: clamp(32px, 6vw, 52px);
-      font-weight: 800;
-      letter-spacing: clamp(-0.5px, -0.04em, -2px);
-      line-height: 1.08;
+      font-size: clamp(40px, 7vw, 68px);
+      font-weight: 700;
+      letter-spacing: clamp(-1px, -0.04em, -2.5px);
+      line-height: 1.05;
+      color: var(--text);
     }
     h2 {
-      font-size: 22px;
-      font-weight: 700;
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 600;
       letter-spacing: -0.5px;
+      line-height: 1.1;
       margin-bottom: var(--sp-5);
+      color: var(--text);
     }
-    h3 {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1px;
+    /* section eyebrow — Apple blue label above headings */
+    .eyebrow {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: var(--sp-3);
       text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: var(--sp-4);
+      letter-spacing: 0.5px;
     }
     code {
       font-family: "SF Mono", ui-monospace, Menlo, monospace;
-      font-size: 12.5px;
+      font-size: 13px;
       background: var(--bg-3);
-      padding: 1px 6px;
+      padding: 2px 6px;
       border-radius: var(--r-xs);
       color: var(--text);
     }
 
     /* ── HERO ────────────────────────────────────────────── */
-    .hero { padding: 72px 0 var(--sp-16); }
+    .hero { padding: 100px 0 80px; }
     .hero-eyebrow {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
+      font-size: 14px;
+      font-weight: 600;
       color: var(--accent);
-      margin-bottom: var(--sp-4);
+      margin-bottom: var(--sp-5);
+      display: block;
     }
-    .hero h1 { margin-bottom: var(--sp-5); }
+    .hero h1 { margin-bottom: var(--sp-6); }
     .hero-sub {
-      font-size: 18px;
+      font-size: 21px;
       color: var(--text-body);
-      line-height: 1.55;
-      max-width: 560px;
+      line-height: 1.5;
+      max-width: 600px;
       margin-bottom: var(--sp-3);
     }
     .hero-note {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--text-muted);
-      margin-bottom: var(--sp-8);
+      margin-bottom: var(--sp-10);
     }
     .chip {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 5px 14px;
+      border-radius: 980px;
       background: var(--green-bg);
       color: var(--green);
     }
@@ -267,99 +263,83 @@
       display: flex;
       flex-wrap: wrap;
       gap: var(--sp-2);
-      margin-bottom: var(--sp-8);
+      margin-bottom: var(--sp-10);
     }
     .btn {
       display: inline-flex;
       align-items: center;
       gap: var(--sp-2);
-      font-weight: 700;
-      font-size: 14px;
-      padding: 10px var(--sp-5);
-      border-radius: var(--r);
+      font-weight: 400;
+      font-size: 17px;
+      padding: 10px 22px;
+      border-radius: 980px;
       text-decoration: none;
-      transition: opacity .12s;
+      transition: background .15s, opacity .12s, border-color .12s;
+      white-space: nowrap;
     }
-    .btn:hover { opacity: 0.84; }
+    .btn:hover { text-decoration: none; }
     .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); opacity: 1; }
     .btn-ghost {
-      background: var(--bg-3);
-      color: var(--text);
-      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--accent);
+      border: 1.5px solid rgba(0,113,227,0.35);
     }
-    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-ghost:hover { border-color: var(--accent); background: rgba(0,113,227,0.04); opacity: 1; }
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 
-    /* ── TESTIMONIAL ─────────────────────────────────────── */
+    /* ── TESTIMONIAL / ORIGIN ────────────────────────────── */
     .testimonial-wrap {
-      background: var(--bg-2);
+      background: var(--bg);
       border-radius: var(--r);
-      padding: var(--sp-8) var(--sp-8);
+      padding: var(--sp-8);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.07);
     }
     .testimonial-wrap blockquote {
-      font-size: 16px;
-      line-height: 1.65;
-      color: var(--text-body);
+      font-size: 19px;
+      line-height: 1.6;
+      color: var(--text);
       font-style: italic;
       margin-bottom: var(--sp-4);
-      position: relative;
-      padding-left: var(--sp-5);
-    }
-    .testimonial-wrap blockquote::before {
-      content: '"';
-      position: absolute;
-      left: 0;
-      top: -4px;
-      font-size: 28px;
-      line-height: 1;
-      color: var(--accent);
-      font-style: normal;
-      font-weight: 800;
     }
     .testimonial-wrap figcaption {
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 500;
       color: var(--text-muted);
-      padding-left: var(--sp-5);
     }
     .origin-note {
-      margin-top: var(--sp-5);
-      font-size: 14px;
+      margin-top: var(--sp-6);
+      font-size: 15px;
       color: var(--text-muted);
       line-height: 1.6;
     }
 
-    /* ── SAFETY / TRUST BAR ──────────────────────────────── */
+    /* ── TRUST GRID ──────────────────────────────────────── */
     .trust-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 2px;
+      gap: var(--sp-3);
       margin-bottom: var(--sp-6);
     }
-    @media (max-width: 560px) {
+    @media (max-width: 600px) {
       .trust-grid { grid-template-columns: 1fr 1fr; }
     }
     .trust-card {
-      background: var(--bg-2);
-      padding: var(--sp-4);
+      background: var(--bg);
+      border-radius: var(--r);
+      padding: var(--sp-6) var(--sp-5);
       text-align: center;
-    }
-    .trust-card:first-child { border-radius: var(--r) 0 0 var(--r); }
-    .trust-card:last-child  { border-radius: 0 var(--r) var(--r) 0; }
-    @media (max-width: 560px) {
-      .trust-card:first-child  { border-radius: var(--r) 0 0 0; }
-      .trust-card:nth-child(2) { border-radius: 0 var(--r) 0 0; }
-      .trust-card:nth-child(3) { border-radius: 0 0 0 var(--r); }
-      .trust-card:last-child   { border-radius: 0 0 var(--r) 0; }
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     }
     .trust-icon {
-      font-size: 22px;
+      font-size: 24px;
       line-height: 1;
-      margin-bottom: var(--sp-2);
+      margin-bottom: var(--sp-3);
     }
     .trust-num {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: -1px;
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -2px;
       line-height: 1;
       margin-bottom: var(--sp-1);
     }
@@ -367,40 +347,39 @@
     .trust-num.one   { color: var(--accent); }
     .trust-phase {
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: var(--text-muted);
       margin-bottom: var(--sp-2);
     }
     .trust-label {
-      font-size: 11.5px;
+      font-size: 12px;
       color: var(--text-muted);
       line-height: 1.4;
     }
 
     /* ── PIPELINE ────────────────────────────────────────── */
-    .pipeline { display: flex; flex-direction: column; gap: 2px; }
+    .pipeline { display: flex; flex-direction: column; gap: var(--sp-3); }
     .phase {
-      background: var(--bg-2);
-      border-radius: 0;
+      background: var(--bg);
+      border-radius: var(--r);
       overflow: hidden;
       display: grid;
-      grid-template-columns: 64px 1fr;
+      grid-template-columns: 72px 1fr;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
-    .phase:first-child { border-radius: var(--r) var(--r) 0 0; }
-    .phase:last-child  { border-radius: 0 0 var(--r) var(--r); }
     .phase-num {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
-      font-weight: 800;
+      font-size: 26px;
+      font-weight: 700;
       color: var(--accent);
       background: var(--accent-dim);
       letter-spacing: -1px;
     }
-    .phase-body { padding: 18px 22px; }
+    .phase-body { padding: 20px 24px; }
     .phase-label {
       display: flex;
       align-items: center;
@@ -409,35 +388,33 @@
       margin-bottom: var(--sp-2);
     }
     .phase-name {
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 600;
       color: var(--text);
     }
     .badge {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 2px 8px;
-      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 980px;
       white-space: nowrap;
     }
     .badge-safe   { background: var(--green-bg); color: var(--green); }
-    .badge-write  { background: #fef3c7; color: #92400e; }
-    .badge-action { background: #fee2e2; color: #991b1b; }
+    .badge-write  { background: #fff3cd; color: #7a5500; }
+    .badge-action { background: #fce4e4; color: #9b1c1c; }
     .phase-items {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
     }
     .phase-item {
-      font-size: 13px;
-      color: var(--text-muted);
+      font-size: 15px;
+      color: var(--text-body);
       display: flex;
       align-items: baseline;
       gap: var(--sp-2);
     }
-    .phase-item::before { content: "→"; color: var(--accent); flex-shrink: 0; }
+    .phase-item::before { content: "→"; color: var(--accent); flex-shrink: 0; font-size: 13px; }
 
     /* ── TERMINAL ────────────────────────────────────────── */
     .terminal {
@@ -459,23 +436,23 @@
     .dot-g { background: #28c840; }
     .term-title {
       font-size: 12px;
-      color: #6b7280;
+      color: #8e8e93;
       margin-left: var(--sp-2);
       font-family: "SF Mono", ui-monospace, Menlo, monospace;
     }
     .term-body {
-      padding: 18px 20px;
+      padding: 20px 22px;
       font-family: "SF Mono", ui-monospace, Menlo, monospace;
-      font-size: 12.5px;
+      font-size: 13px;
       line-height: 1.7;
       overflow-x: auto;
     }
-    .t-prompt { color: #6b7280; }
+    .t-prompt { color: #636366; }
     .t-cmd    { color: #e2e8f0; }
     .t-out    { color: var(--green-bright); }
-    .t-warn   { color: #fbbf24; }
-    .t-muted  { color: #4b5563; }
-    .t-accent { color: #60a5fa; }
+    .t-warn   { color: #ffd60a; }
+    .t-muted  { color: #48484a; }
+    .t-accent { color: #64d2ff; }
     .t-blank  { display: block; height: 6px; }
 
     /* copy button — persistent at low opacity, full on hover/focus */
@@ -483,122 +460,118 @@
       position: absolute;
       top: 44px;
       right: 12px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.15);
-      color: #9ca3af;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #8e8e93;
       font-size: 11px;
       font-family: "SF Mono", ui-monospace, Menlo, monospace;
       padding: 3px 10px;
       border-radius: var(--r-xs);
       cursor: pointer;
       opacity: 0.38;
-      transition: opacity .15s, background .15s, color .15s, border-color .15s;
+      transition: opacity .15s, background .15s;
     }
     .copy-btn:hover,
     .copy-btn:focus-visible {
       opacity: 1;
-      background: rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.12);
       outline: none;
     }
     .copy-btn.copied { color: var(--green-bright); border-color: var(--green-bright); opacity: 1; }
 
     /* ── STEP LIST ───────────────────────────────────────── */
-    .steps { display: flex; flex-direction: column; gap: 2px; }
+    .steps { display: flex; flex-direction: column; gap: var(--sp-3); }
     .step {
-      background: var(--bg-2);
-      padding: var(--sp-5) var(--sp-6);
+      background: var(--bg);
+      border-radius: var(--r);
+      padding: var(--sp-6);
       display: grid;
-      grid-template-columns: 32px 1fr;
+      grid-template-columns: 40px 1fr;
       gap: var(--sp-4);
       align-items: start;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
-    .step:first-child { border-radius: var(--r) var(--r) 0 0; }
-    .step:last-child  { border-radius: 0 0 var(--r) var(--r); }
     .step-n {
-      width: 32px; height: 32px;
+      width: 36px; height: 36px;
       border-radius: 50%;
       background: var(--accent);
       color: #fff;
-      font-weight: 800;
-      font-size: 14px;
+      font-weight: 600;
+      font-size: 15px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
     .step-title {
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 600;
       color: var(--text);
       margin-bottom: 4px;
     }
-    .step-desc { font-size: 14px; color: var(--text-body); margin: 0; }
+    .step-desc { font-size: 15px; color: var(--text-body); margin: 0; }
 
     /* ── PANEL GROUP ─────────────────────────────────────── */
-    .panel-group { display: flex; flex-direction: column; gap: 2px; }
+    .panel-group { display: flex; flex-direction: column; gap: var(--sp-3); }
     .panel {
-      background: var(--bg-2);
-      padding: var(--sp-5) var(--sp-6);
+      background: var(--bg);
+      border-radius: var(--r);
+      padding: var(--sp-6);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
-    .panel:first-child { border-radius: var(--r) var(--r) 0 0; }
-    .panel:last-child  { border-radius: 0 0 var(--r) var(--r); }
-    .panel:only-child  { border-radius: var(--r); }
     .panel-title {
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 600;
       color: var(--text);
       margin-bottom: var(--sp-2);
     }
-    .panel p { font-size: 14px; margin-bottom: 0; }
+    .panel p { font-size: 15px; margin-bottom: 0; }
     .panel .terminal { margin: var(--sp-4) 0 0; }
 
     /* ── CALLOUT ─────────────────────────────────────────── */
     .callout {
       background: var(--green-bg);
-      border-left: 3px solid var(--green);
-      border-radius: 0 var(--r) var(--r) 0;
-      padding: var(--sp-3) var(--sp-4);
-      margin: var(--sp-5) 0;
+      border-radius: var(--r);
+      padding: var(--sp-4) var(--sp-5);
+      margin: var(--sp-6) 0;
       display: flex;
       gap: var(--sp-3);
       align-items: baseline;
     }
-    .callout-icon { flex-shrink: 0; font-style: normal; }
-    .callout p { color: #166534; font-size: 14px; margin: 0; }
+    .callout-icon { flex-shrink: 0; font-style: normal; color: var(--green); }
+    .callout p { color: #1a5c2e; font-size: 15px; margin: 0; }
     .callout strong { color: var(--green); }
-    .callout-warn {
-      background: #fff7ed;
-      border-left-color: var(--accent);
-    }
-    .callout-warn p { color: #7c2d12; }
-    .callout-warn strong { color: var(--accent); }
-    .callout-warn .callout-icon { color: var(--accent); }
+    .callout-warn { background: #fff3e0; }
+    .callout-warn p { color: #6b3800; }
+    .callout-warn strong { color: #9a5300; }
+    .callout-warn .callout-icon { color: #bf6c00; }
 
     /* ── TABLE ───────────────────────────────────────────── */
     .table-wrap {
       overflow-x: auto;
       border-radius: var(--r);
-      margin-top: var(--sp-5);
+      margin-top: var(--sp-6);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      background: var(--bg-2);
-      font-size: 13.5px;
+      background: var(--bg);
+      font-size: 15px;
     }
     th {
       text-align: left;
-      padding: var(--sp-3) var(--sp-4);
+      padding: var(--sp-3) var(--sp-5);
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: var(--text-muted);
-      background: var(--bg-3);
+      background: var(--bg-alt);
       border-bottom: 1px solid var(--border);
     }
     td {
-      padding: var(--sp-3) var(--sp-4);
+      padding: var(--sp-4) var(--sp-5);
       border-bottom: 1px solid var(--border);
       color: var(--text-body);
       vertical-align: top;
@@ -606,15 +579,14 @@
     tr:last-child td { border-bottom: none; }
 
     /* ── FAQ ─────────────────────────────────────────────── */
-    .faq { display: flex; flex-direction: column; gap: 2px; }
-    details { background: var(--bg-2); }
-    details:first-child { border-radius: var(--r) var(--r) 0 0; }
-    details:last-child  { border-radius: 0 0 var(--r) var(--r); }
-    details[open] { background: var(--bg); border: 1px solid var(--border); }
+    .faq { display: flex; flex-direction: column; }
+    details { border-bottom: 1px solid var(--border); }
+    details:first-child { border-top: 1px solid var(--border); }
+    details[open] { background: transparent; }
     summary {
-      padding: 18px 22px;
-      font-size: 14.5px;
-      font-weight: 600;
+      padding: 18px 0;
+      font-size: 17px;
+      font-weight: 500;
       cursor: pointer;
       list-style: none;
       display: flex;
@@ -624,92 +596,90 @@
       color: var(--text);
     }
     summary::-webkit-details-marker { display: none; }
-    summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
     summary::after {
       content: "+";
-      font-size: 18px;
-      font-weight: 400;
-      color: var(--accent);
+      font-size: 20px;
+      font-weight: 300;
+      color: var(--text-muted);
       flex-shrink: 0;
     }
     details[open] summary::after { content: "−"; }
     .faq-body {
-      padding: 0 22px 18px;
-      font-size: 14px;
+      padding: 0 0 18px;
+      font-size: 15px;
       color: var(--text-body);
     }
     .faq-body p { margin-bottom: 10px; }
     .faq-body p:last-child { margin-bottom: 0; }
-    .faq-body code { font-size: 12px; }
+    .faq-body code { font-size: 13px; }
 
     /* ── TEMPLATE GRID ───────────────────────────────────── */
     .template-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 2px;
-      margin-top: var(--sp-5);
+      gap: var(--sp-4);
+      margin-top: var(--sp-6);
     }
-    @media (max-width: 560px) {
+    @media (max-width: 600px) {
       .template-grid { grid-template-columns: 1fr; }
     }
-    .template-card { background: var(--bg-2); padding: var(--sp-5); }
-    .template-card:first-child { border-radius: var(--r) 0 0 var(--r); }
-    .template-card:last-child  { border-radius: 0 var(--r) var(--r) 0; }
-    @media (max-width: 560px) {
-      .template-card { border-radius: 0; }
-      .template-card:first-child { border-radius: var(--r) var(--r) 0 0; }
-      .template-card:last-child  { border-radius: 0 0 var(--r) var(--r); }
+    .template-card {
+      background: var(--bg);
+      border-radius: var(--r);
+      padding: var(--sp-6);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
     .template-name {
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 600;
       color: var(--text);
-      margin-bottom: var(--sp-2);
+      margin-bottom: var(--sp-3);
     }
     .template-tree {
       font-family: "SF Mono", ui-monospace, Menlo, monospace;
-      font-size: 11.5px;
+      font-size: 12px;
       color: var(--text-muted);
-      line-height: 1.7;
+      line-height: 1.8;
     }
-    /* hl must pass WCAG AA against bg-2 (#efede7) — use full --text */
+    /* hl must pass WCAG AA against card background */
     .template-tree .hl { color: var(--text); font-weight: 600; }
 
-    /* ── CONFLICT ITEMS (unified with panel system) ───────── */
-    .conflict-group { display: flex; flex-direction: column; gap: 2px; margin-top: var(--sp-5); }
+    /* ── CONFLICT ITEMS ──────────────────────────────────── */
+    .conflict-group { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-6); }
     .conflict-item {
-      background: var(--bg-2);
-      padding: var(--sp-4) 22px;
+      background: var(--bg);
+      border-radius: var(--r);
+      padding: var(--sp-5) var(--sp-6);
       display: grid;
-      grid-template-columns: 148px 1fr;
-      gap: var(--sp-4);
+      grid-template-columns: 164px 1fr;
+      gap: var(--sp-5);
       align-items: start;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
     }
-    .conflict-item:first-child { border-radius: var(--r) var(--r) 0 0; }
-    .conflict-item:last-child  { border-radius: 0 0 var(--r) var(--r); }
-    @media (max-width: 560px) {
-      .conflict-item { grid-template-columns: 1fr; gap: var(--sp-1); }
+    @media (max-width: 600px) {
+      .conflict-item { grid-template-columns: 1fr; gap: var(--sp-2); }
     }
     .conflict-type {
-      font-size: 13px;
-      font-weight: 700;
+      font-size: 15px;
+      font-weight: 600;
       color: var(--text);
       line-height: 1.4;
     }
     .conflict-sub {
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 400;
       color: var(--text-muted);
       display: block;
       margin-top: 2px;
     }
-    .conflict-action { font-size: 13.5px; color: var(--text-body); }
+    .conflict-action { font-size: 15px; color: var(--text-body); }
 
     /* ── FOOTER ──────────────────────────────────────────── */
     footer {
+      background: var(--bg-alt);
       border-top: 1px solid var(--border);
-      margin-top: var(--sp-8);
-      padding: var(--sp-8) 0;
+      padding: var(--sp-10) 0;
     }
     .footer-inner {
       display: flex;
@@ -719,15 +689,24 @@
       gap: var(--sp-3);
     }
     .footer-inner p { font-size: 13px; color: var(--text-muted); margin: 0; }
-    .footer-links { display: flex; gap: var(--sp-5); }
+    .footer-links { display: flex; gap: var(--sp-6); }
     .footer-links a { font-size: 13px; color: var(--text-muted); text-decoration: none; transition: color .12s; }
-    .footer-links a:hover { color: var(--accent); }
+    .footer-links a:hover { color: var(--accent); text-decoration: none; }
 
     /* ── UTILS ───────────────────────────────────────────── */
     .mt-4  { margin-top: var(--sp-4); }
     .mt-5  { margin-top: var(--sp-5); }
     .mt-6  { margin-top: var(--sp-6); }
     .mt-8  { margin-top: var(--sp-8); }
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
   </style>
 </head>
 <body>
@@ -764,14 +743,14 @@
 <!-- ── HERO ─────────────────────────────────────────────── -->
 <section class="hero" aria-labelledby="hero-heading">
   <div class="container">
-    <p class="hero-eyebrow">macOS · Works with Claude Code</p>
+    <span class="hero-eyebrow">macOS · Works with Claude Code</span>
     <h1 id="hero-heading">Your files are<br>scattered.<br>This fixes that.</h1>
     <p class="hero-sub">
-      Consolidate Desktop, Downloads, and any other folders into a clean,
+      Consolidate Desktop, Downloads, and any other folders into one
       organized structure, with a full backup and one-command undo before
       a single file moves.
     </p>
-    <p class="hero-note">No bash experience required. Claude Code guides you through every step.</p>
+    <p class="hero-note">No bash experience required. Claude Code walks you through every step.</p>
     <div class="chip-row" role="list" aria-label="Key guarantees">
       <span class="chip" role="listitem">✓ Preview everything before it moves</span>
       <span class="chip" role="listitem">✓ One command to undo completely</span>
@@ -785,18 +764,15 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── ORIGIN ──────────────────────────────────────────────── -->
-<section aria-label="Why this exists">
+<section class="section-alt" aria-label="Why this exists">
   <div class="container">
-    <h3>Why this exists</h3>
+    <span class="eyebrow">Why this exists</span>
     <figure class="testimonial-wrap">
       <blockquote>
-        My MacBook had two years of accumulated chaos: files dumped everywhere, nothing
-        where I expected it to be. I built this tool for myself,
-        ran it on my own machine, and the result was immediate: a genuine sense of
-        peace every time I open my Mac now.
+        Two years of screenshots, installers, half-finished drafts — on the Desktop or
+        in Downloads. I'd spend five minutes hunting for files I knew I had. I wrote
+        this to fix that, ran it on my own machine, and I haven't lost a file since.
       </blockquote>
       <figcaption>Geoff Freedman, creator</figcaption>
     </figure>
@@ -810,12 +786,10 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── SAFETY / TRUST ────────────────────────────────────── -->
 <section id="safety" aria-labelledby="safety-heading">
   <div class="container">
-    <h3>Control</h3>
+    <span class="eyebrow">Control</span>
     <h2 id="safety-heading">You're in control at every step</h2>
     <p>
       The tool runs in four phases. The first two are completely read-only.
@@ -856,12 +830,10 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── HOW IT WORKS ──────────────────────────────────────── -->
-<section id="how-it-works" aria-labelledby="how-heading">
+<section id="how-it-works" class="section-alt" aria-labelledby="how-heading">
   <div class="container">
-    <h3>Overview</h3>
+    <span class="eyebrow">Overview</span>
     <h2 id="how-heading">Four phases, two permissions</h2>
     <p>
       Each phase builds on the last. You can stop at any point before Execute
@@ -933,44 +905,20 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── GET STARTED ───────────────────────────────────────── -->
 <section id="get-started" aria-labelledby="start-heading">
   <div class="container">
-    <h3>Quickstart</h3>
+    <span class="eyebrow">Quickstart</span>
     <h2 id="start-heading">Set up in under 5 minutes</h2>
 
     <p>
-      One prerequisite: <strong>Bash 4+</strong>. macOS ships with Bash 3.2,
-      which is too old. Install the current version in about 30 seconds:
+      The only prerequisite is <strong>Bash 4+</strong>. macOS ships with Bash 3.2, which is
+      too old. When you use Claude Code, it detects this automatically and runs
+      <code>brew install bash</code> for you before doing anything else. No manual setup needed.
     </p>
 
-    <div class="terminal mt-5" id="term-prereq">
-      <div class="term-bar">
-        <div class="dot dot-r"></div>
-        <div class="dot dot-y"></div>
-        <div class="dot dot-g"></div>
-        <span class="term-title">Terminal — one-time setup</span>
-      </div>
-      <button
-        class="copy-btn"
-        aria-label="Copy prerequisite commands to clipboard"
-        data-target="term-prereq-text"
-      >copy</button>
-      <div class="term-body" id="term-prereq-text">
-        <span class="t-muted"># Check your current version</span><br>
-        <span class="t-prompt">$ </span><span class="t-cmd">bash --version | head -1</span><br>
-        <span class="t-warn">GNU bash, version 3.2.57(1)-release  ← too old</span><br>
-        <span class="t-blank"></span>
-        <span class="t-muted"># Install Bash 5 via Homebrew (~30 seconds)</span><br>
-        <span class="t-prompt">$ </span><span class="t-cmd">brew install bash</span><br>
-        <span class="t-out">✓ bash 5.2.37 installed</span>
-      </div>
-    </div>
-
     <div class="mt-8">
-      <h3>With Claude Code (recommended)</h3>
+      <span class="eyebrow">With Claude Code (recommended)</span>
     </div>
 
     <div class="steps mt-4">
@@ -1038,9 +986,9 @@
     </div>
 
     <div class="mt-8">
-      <h3>Standalone (no Claude Code)</h3>
+      <span class="eyebrow">Standalone (no Claude Code)</span>
     </div>
-    <p class="mt-4">You can run each phase directly from the terminal if you prefer.</p>
+    <p class="mt-4">You can run each phase directly from the terminal. You'll need to install Bash 4+ first if you haven't already: <code>brew install bash</code></p>
 
     <div class="terminal mt-5" id="term-standalone">
       <div class="term-bar">
@@ -1076,12 +1024,10 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── UNDO ──────────────────────────────────────────────── -->
-<section id="undo" aria-labelledby="undo-heading">
+<section id="undo" class="section-alt" aria-labelledby="undo-heading">
   <div class="container">
-    <h3>Safety</h3>
+    <span class="eyebrow">Safety</span>
     <h2 id="undo-heading">Changed your mind? Undo it.</h2>
 
     <p>
@@ -1129,12 +1075,10 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── TEMPLATES ─────────────────────────────────────────── -->
 <section id="templates" aria-labelledby="templates-heading">
   <div class="container">
-    <h3>Organization</h3>
+    <span class="eyebrow">Organization</span>
     <h2 id="templates-heading">Choose a structure template</h2>
     <p>Pick a built-in template or define your own layout during the proposal phase. You can customize any template before committing.</p>
 
@@ -1178,12 +1122,10 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── CONFLICTS ─────────────────────────────────────────── -->
-<section id="conflicts" aria-labelledby="conflicts-heading">
+<section id="conflicts" class="section-alt" aria-labelledby="conflicts-heading">
   <div class="container">
-    <h3>Conflicts</h3>
+    <span class="eyebrow">Conflicts</span>
     <h2 id="conflicts-heading">How duplicates and conflicts are handled</h2>
     <p>The tool never silently overwrites a file. Every conflict is resolved deterministically and logged in the manifest so you have a full record.</p>
 
@@ -1212,12 +1154,10 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── CONFIG ────────────────────────────────────────────── -->
 <section id="config" aria-labelledby="config-heading">
   <div class="container">
-    <h3>Configuration</h3>
+    <span class="eyebrow">Configuration</span>
     <h2 id="config-heading">Environment variables</h2>
     <p>Set any of these before running a script to override the defaults. All are optional. The tool works out of the box without any configuration.</p>
 
@@ -1258,12 +1198,10 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── FAQ ──────────────────────────────────────────────── -->
-<section id="faq" aria-labelledby="faq-heading">
+<section id="faq" class="section-alt" aria-labelledby="faq-heading">
   <div class="container">
-    <h3>FAQ</h3>
+    <span class="eyebrow">FAQ</span>
     <h2 id="faq-heading">Common questions</h2>
 
     <div class="faq mt-5">
@@ -1368,12 +1306,10 @@
   </div>
 </section>
 
-<hr class="divider">
-
 <!-- ── LIMITATIONS ───────────────────────────────────────── -->
 <section id="limitations" aria-labelledby="limits-heading">
   <div class="container">
-    <h3>Known limitations</h3>
+    <span class="eyebrow">Known limitations</span>
     <h2 id="limits-heading" class="sr-only">Known limitations</h2>
 
     <div class="callout callout-warn mt-4">
@@ -1407,19 +1343,6 @@
     </div>
   </div>
 </footer>
-
-<!-- sr-only utility for screen-reader-only headings -->
-<style>
-  .sr-only {
-    position: absolute;
-    width: 1px; height: 1px;
-    padding: 0; margin: -1px;
-    overflow: hidden;
-    clip: rect(0,0,0,0);
-    white-space: nowrap;
-    border: 0;
-  }
-</style>
 
 <script>
   /* ── HAMBURGER ─────────────────────────────────────────── */

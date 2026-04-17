@@ -547,7 +547,39 @@ main()
         exit 1
     fi
 
+    # Validate each source directory (same guards as analyze.sh)
+    for source_dir in "${source_dirs[@]}"
+    do
+        if ! validate_directory "$source_dir"
+        then
+            exit 1
+        fi
+        if ! validate_not_system_dir "$source_dir"
+        then
+            exit 1
+        fi
+    done
+
     OUTPUT_DIR="${OUTPUT_DIR:-.}"
+
+    # Guard: output directory must not be inside any source directory.
+    # If it were, the manifest/scripts/backup would be picked up by the migration.
+    local abs_output
+    abs_output=$(cd "$OUTPUT_DIR" 2>/dev/null && pwd) || true
+    if [[ -n "$abs_output" ]]
+    then
+        for source_dir in "${source_dirs[@]}"
+        do
+            local abs_source
+            abs_source=$(cd "$source_dir" 2>/dev/null && pwd) || continue
+            if [[ "$abs_output" == "$abs_source" || "$abs_output" == "$abs_source/"* ]]
+            then
+                log_error "Output directory ($OUTPUT_DIR) is inside source directory ($source_dir)."
+                log_error "Set --output to a location outside your source directories."
+                exit 1
+            fi
+        done
+    fi
     MANIFEST_FILE="${OUTPUT_DIR}/manifest_${TIMESTAMP}.txt"
     EXECUTE_SCRIPT="${OUTPUT_DIR}/execute_${TIMESTAMP}.sh"
     REVERSAL_SCRIPT="${OUTPUT_DIR}/reversal_${TIMESTAMP}.sh"
