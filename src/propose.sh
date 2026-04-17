@@ -375,7 +375,14 @@ Archives/"
 
     if [[ -n "${OUTPUT_DIR:-}" ]]
     then
-        export_structure "${OUTPUT_DIR}/structure_$(get_timestamp).txt" "$target_dir" "$structure"
+        # Clean up timestamped structure files from previous runs.
+        local old_structure
+        for old_structure in "${OUTPUT_DIR}"/structure_[0-9][0-9][0-9][0-9]-*.txt
+        do
+            [[ -f "$old_structure" ]] && rm -f "$old_structure"
+        done
+
+        export_structure "${OUTPUT_DIR}/structure_latest.txt" "$target_dir" "$structure"
     fi
 
     log_success "Structure proposal complete!"

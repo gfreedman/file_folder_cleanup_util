@@ -70,7 +70,7 @@ Present the summary to the user:
 
 Either:
 - Use a template: `--template personal` or `--template business` or `--template minimal`
-- Auto-suggest based on file types: `--auto --analysis <analysis_file>`
+- Auto-suggest based on file types: `--auto --analysis ~/tmp-cleanup/analysis_latest.txt`
 - Let the user define custom structure
 
 ```bash

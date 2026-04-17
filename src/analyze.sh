@@ -302,9 +302,16 @@ main()
 
     print_summary
 
-    # Always export an audit record of the analysis phase.
-    # OUTPUT_DIR defaults to '.' (current directory) if CLEANUP_OUTPUT_DIR is not set.
-    export_analysis "${OUTPUT_DIR}/analysis_$(get_timestamp).txt"
+    # Clean up timestamped analysis files from previous runs before writing
+    # the new one. analysis_latest.txt is a scratch file, not an audit record —
+    # only one copy is needed at a time.
+    local old_analysis
+    for old_analysis in "${OUTPUT_DIR}"/analysis_[0-9][0-9][0-9][0-9]-*.txt
+    do
+        [[ -f "$old_analysis" ]] && rm -f "$old_analysis"
+    done
+
+    export_analysis "${OUTPUT_DIR}/analysis_latest.txt"
 
     log_success "Analysis complete!"
 
