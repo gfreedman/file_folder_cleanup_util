@@ -155,6 +155,16 @@ validate_inputs()
         return 0
     fi
 
+    if [[ "$PHASE" == "propose" ]]
+    then
+        if [[ -z "$TARGET" ]]
+        then
+            log_error "Target directory required for propose phase. Use --target dir"
+            exit 1
+        fi
+        return 0
+    fi
+
     if [[ "$PHASE" == "execute" && -n "$EXECUTE_SCRIPT" ]]
     then
         if [[ ! -f "$EXECUTE_SCRIPT" ]]
@@ -219,20 +229,22 @@ run_execute()
 
     if [[ -n "$EXECUTE_SCRIPT" ]]
     then
-        bash "${SCRIPT_DIR}/src/execute.sh" "$EXECUTE_SCRIPT" --$EXECUTE_MODE
+        bash "${SCRIPT_DIR}/src/execute.sh" "$EXECUTE_SCRIPT" "--${EXECUTE_MODE}"
     else
-        local latest_script
-        latest_script=$(ls -t "${OUTPUT_DIR}"/execute_*.sh 2>/dev/null | head -1)
-
-        if [[ -z "$latest_script" ]]
+        # Glob into array — avoids parsing ls output.
+        # Filenames are timestamped YYYY-MM-DD_HH-MM-SS so alphabetical = chronological;
+        # bash glob expansion sorts alphabetically, making the last element the newest.
+        local -a scripts=( "${OUTPUT_DIR}"/execute_*.sh )
+        if [[ ! -f "${scripts[0]:-}" ]]
         then
             log_error "No execute script found in $OUTPUT_DIR"
             log_info "Run --phase generate first, or specify --script <path>"
             exit 1
         fi
 
+        local latest_script="${scripts[-1]}"
         log_info "Using most recent execute script: $latest_script"
-        bash "${SCRIPT_DIR}/src/execute.sh" "$latest_script" --$EXECUTE_MODE
+        bash "${SCRIPT_DIR}/src/execute.sh" "$latest_script" "--${EXECUTE_MODE}"
     fi
 }
 
