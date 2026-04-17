@@ -24,4 +24,9 @@ fi
 # Export the Bash 4+ path so .bats files can use it.
 export BASH4="$BASH"
 
-exec bats --tap "$SCRIPT_DIR"/test_*.bats
+# Use pretty output for interactive terminals; TAP for CI parsers.
+if [[ -t 1 ]]; then
+    exec bats --pretty "$SCRIPT_DIR"/test_*.bats
+else
+    exec bats --tap "$SCRIPT_DIR"/test_*.bats
+fi

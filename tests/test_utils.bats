@@ -1,36 +1,45 @@
 #!/usr/bin/env bats
 # Unit tests for src/utils.sh
 
-BASH4="${BASH4:-/opt/homebrew/bin/bash}"
+if [[ -z "${BASH4:-}" ]]; then
+    for _c in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+        if [[ -x "$_c" ]] && "$_c" -c '((BASH_VERSINFO[0]>=4))' 2>/dev/null; then
+            BASH4="$_c"; break
+        fi
+    done
+    : "${BASH4:=bash}"
+    unset _c
+fi
 PROJECT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
-# Source utils in a subshell helper
+# Call a utils.sh function with proper argument passing — avoids code-as-string fragility.
 run_utils() {
-    "$BASH4" -c "source '${PROJECT_DIR}/src/utils.sh'; $1"
+    local fn="$1"; shift
+    "$BASH4" -c ". '${PROJECT_DIR}/src/utils.sh'; \"\$@\"" -- "$fn" "$@"
 }
 
 # ── format_bytes ──────────────────────────────────────────────────────────────
 
 @test "format_bytes: bytes under 1 KB" {
-    run run_utils "format_bytes 500"
+    run run_utils format_bytes 500
     [ "$status" -eq 0 ]
     [ "$output" = "500 bytes" ]
 }
 
 @test "format_bytes: exactly 1 MB" {
-    run run_utils "format_bytes 1048576"
+    run run_utils format_bytes 1048576
     [ "$status" -eq 0 ]
     [ "$output" = "1 MB" ]
 }
 
 @test "format_bytes: exactly 1 GB" {
-    run run_utils "format_bytes 1073741824"
+    run run_utils format_bytes 1073741824
     [ "$status" -eq 0 ]
     [ "$output" = "1 GB" ]
 }
 
 @test "format_bytes: KB boundary" {
-    run run_utils "format_bytes 2048"
+    run run_utils format_bytes 2048
     [ "$status" -eq 0 ]
     [ "$output" = "2 KB" ]
 }
@@ -41,7 +50,7 @@ run_utils() {
     local tmpfile
     tmpfile=$(mktemp)
     printf 'test' > "$tmpfile"
-    run run_utils "get_file_hash '$tmpfile'"
+    run run_utils get_file_hash "$tmpfile"
     rm -f "$tmpfile"
     [ "$status" -eq 0 ]
     # SHA-256("test") without newline
@@ -66,19 +75,19 @@ run_utils() {
 # ── validate_directory ────────────────────────────────────────────────────────
 
 @test "validate_directory: accepts existing directory" {
-    run run_utils "validate_directory '/tmp'"
+    run run_utils validate_directory /tmp
     [ "$status" -eq 0 ]
 }
 
 @test "validate_directory: rejects non-existent path" {
-    run run_utils "validate_directory '/no/such/path/xyz'"
+    run run_utils validate_directory /no/such/path/xyz
     [ "$status" -ne 0 ]
 }
 
 @test "validate_directory: rejects a file path" {
     local tmpfile
     tmpfile=$(mktemp)
-    run run_utils "validate_directory '$tmpfile'"
+    run run_utils validate_directory "$tmpfile"
     rm -f "$tmpfile"
     [ "$status" -ne 0 ]
 }
@@ -86,22 +95,22 @@ run_utils() {
 # ── validate_not_system_dir ───────────────────────────────────────────────────
 
 @test "validate_not_system_dir: blocks /System" {
-    run run_utils "validate_not_system_dir '/System'"
+    run run_utils validate_not_system_dir /System
     [ "$status" -ne 0 ]
 }
 
 @test "validate_not_system_dir: blocks /Library subtree" {
-    run run_utils "validate_not_system_dir '/Library/Preferences'"
+    run run_utils validate_not_system_dir /Library/Preferences
     [ "$status" -ne 0 ]
 }
 
 @test "validate_not_system_dir: blocks /usr" {
-    run run_utils "validate_not_system_dir '/usr'"
+    run run_utils validate_not_system_dir /usr
     [ "$status" -ne 0 ]
 }
 
 @test "validate_not_system_dir: allows ~/Documents" {
-    run run_utils "validate_not_system_dir '$HOME/Documents'"
+    run run_utils validate_not_system_dir "$HOME/Documents"
     [ "$status" -eq 0 ]
 }
 

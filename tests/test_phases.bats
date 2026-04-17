@@ -1,7 +1,15 @@
 #!/usr/bin/env bats
 # Integration tests for all 4 phases (analyze, propose, generate, execute)
 
-BASH4="${BASH4:-/opt/homebrew/bin/bash}"
+if [[ -z "${BASH4:-}" ]]; then
+    for _c in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+        if [[ -x "$_c" ]] && "$_c" -c '((BASH_VERSINFO[0]>=4))' 2>/dev/null; then
+            BASH4="$_c"; break
+        fi
+    done
+    : "${BASH4:=bash}"
+    unset _c
+fi
 PROJECT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
 # Build a standard fixture tree in BATS_TEST_TMPDIR/source
@@ -27,10 +35,13 @@ setup_second_source() {
     echo "different content" > "$src2/readme.txt"  # same name, different content
 }
 
+setup() {
+    setup_fixtures
+}
+
 # ── Phase 1: analyze ──────────────────────────────────────────────────────────
 
 @test "analyze: counts all regular files" {
-    setup_fixtures
     run "$BASH4" "${PROJECT_DIR}/src/analyze.sh" "$BATS_TEST_TMPDIR/source"
     [ "$status" -eq 0 ]
     total=$(echo "$output" | grep "ANALYSIS_COMPLETE|" | cut -d'|' -f2)
@@ -38,7 +49,6 @@ setup_second_source() {
 }
 
 @test "analyze: per-source counts are not cumulative" {
-    setup_fixtures
     setup_second_source
     run "$BASH4" "${PROJECT_DIR}/src/analyze.sh" \
         "$BATS_TEST_TMPDIR/source" "$BATS_TEST_TMPDIR/source2"
@@ -50,14 +60,12 @@ setup_second_source() {
 }
 
 @test "analyze: detects duplicate content" {
-    setup_fixtures
     run "$BASH4" "${PROJECT_DIR}/src/analyze.sh" "$BATS_TEST_TMPDIR/source"
     [ "$status" -eq 0 ]
     echo "$output" | grep -qi "duplicate group"
 }
 
 @test "analyze: reports filename conflicts across sources" {
-    setup_fixtures
     setup_second_source
     run "$BASH4" "${PROJECT_DIR}/src/analyze.sh" \
         "$BATS_TEST_TMPDIR/source" "$BATS_TEST_TMPDIR/source2"
@@ -120,7 +128,6 @@ setup_second_source() {
 # ── Phase 3: generate ─────────────────────────────────────────────────────────
 
 @test "generate: produces manifest, execute, and reversal files" {
-    setup_fixtures
     local out="$BATS_TEST_TMPDIR/out"
     mkdir -p "$out"
     run env CLEANUP_CREATE_BACKUP=0 "$BASH4" "${PROJECT_DIR}/src/generate_plan.sh" \
@@ -134,7 +141,6 @@ setup_second_source() {
 }
 
 @test "generate: manifest has PLANNED entries in correct pipe-delimited format" {
-    setup_fixtures
     local out="$BATS_TEST_TMPDIR/out"
     mkdir -p "$out"
     env CLEANUP_CREATE_BACKUP=0 "$BASH4" "${PROJECT_DIR}/src/generate_plan.sh" \
@@ -152,7 +158,6 @@ setup_second_source() {
 }
 
 @test "generate: execute script is executable and reads from manifest" {
-    setup_fixtures
     local out="$BATS_TEST_TMPDIR/out"
     mkdir -p "$out"
     env CLEANUP_CREATE_BACKUP=0 "$BASH4" "${PROJECT_DIR}/src/generate_plan.sh" \
@@ -168,7 +173,6 @@ setup_second_source() {
 }
 
 @test "generate: reversal script references same paths as execute script" {
-    setup_fixtures
     local out="$BATS_TEST_TMPDIR/out"
     mkdir -p "$out"
     env CLEANUP_CREATE_BACKUP=0 "$BASH4" "${PROJECT_DIR}/src/generate_plan.sh" \
@@ -182,7 +186,6 @@ setup_second_source() {
 }
 
 @test "generate: backup is created by default" {
-    setup_fixtures
     local out="$BATS_TEST_TMPDIR/out"
     mkdir -p "$out"
     run "$BASH4" "${PROJECT_DIR}/src/generate_plan.sh" \
@@ -196,7 +199,6 @@ setup_second_source() {
 # ── Phase 4: execute ──────────────────────────────────────────────────────────
 
 @test "execute: dry run outputs DRY RUN and leaves files in place" {
-    setup_fixtures
     local out="$BATS_TEST_TMPDIR/out"
     mkdir -p "$out"
     env CLEANUP_CREATE_BACKUP=0 "$BASH4" "${PROJECT_DIR}/src/generate_plan.sh" \
@@ -213,7 +215,6 @@ setup_second_source() {
 }
 
 @test "execute: live run moves files to target" {
-    setup_fixtures
     local out="$BATS_TEST_TMPDIR/out"
     mkdir -p "$out"
     env CLEANUP_CREATE_BACKUP=0 "$BASH4" "${PROJECT_DIR}/src/generate_plan.sh" \
@@ -228,7 +229,6 @@ setup_second_source() {
 }
 
 @test "execute: reversal restores files to original locations" {
-    setup_fixtures
     local out="$BATS_TEST_TMPDIR/out"
     mkdir -p "$out"
     env CLEANUP_CREATE_BACKUP=0 "$BASH4" "${PROJECT_DIR}/src/generate_plan.sh" \
@@ -240,7 +240,8 @@ setup_second_source() {
     reversal=$(ls "$out"/reversal_*.sh | head -1)
     bash -c "cd '$out' && echo yes | '$BASH4' '$execute' --execute"  >/dev/null 2>&1
     bash -c "cd '$out' && echo yes | '$BASH4' '$reversal'"           >/dev/null 2>&1
-    [ -f "$BATS_TEST_TMPDIR/source/readme.txt" ]
+    restored=$(find "$BATS_TEST_TMPDIR/source" -type f | wc -l | tr -d ' ')
+    [ "$restored" -eq 9 ]
 }
 
 @test "execute: missing manifest exits non-zero" {
