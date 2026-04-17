@@ -1233,9 +1233,11 @@
       </details>
 
       <details>
-        <summary>Why do I need Bash 4+? I'm on macOS.</summary>
+        <summary>Do I need to install Bash 4+ myself?</summary>
         <div class="faq-body">
-          <p>macOS ships Bash 3.2 (circa 2007) because Apple can't redistribute newer GPL-licensed versions. The scripts use associative arrays (<code>declare -A</code>), which require Bash 4. Running on Bash 3.2 causes an immediate exit with a clear message pointing to <code>brew install bash</code>. The install takes about 30 seconds.</p>
+          <p>Not if you're using Claude Code. It checks your Bash version before running anything and installs Bash 4+ via Homebrew automatically if needed. You just say yes when it asks.</p>
+          <p>Standalone users: run <code>brew install bash</code> once before the first phase. Takes about 30 seconds.</p>
+          <p>Why Bash 4 at all: macOS ships Bash 3.2 (circa 2007) because Apple can't redistribute newer GPL-licensed versions. The scripts use associative arrays (<code>declare -A</code>), which require Bash 4.</p>
         </div>
       </details>
 
@@ -1322,7 +1324,7 @@
     </div>
     <div class="callout callout-warn">
       <span class="callout-icon" aria-hidden="true">⚠</span>
-      <p><strong>Bash 4+ required.</strong> macOS ships Bash 3.2. One-time fix: <code>brew install bash</code></p>
+      <p><strong>Bash 4+ required.</strong> Claude Code installs it automatically. Standalone users: <code>brew install bash</code> once.</p>
     </div>
 
   </div>
