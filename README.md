@@ -83,7 +83,7 @@ PHASE 1: ANALYZE (read-only)
   Inventory files · Detect duplicates via SHA-256 · Flag large files · Find conflicts
                           ↓
 PHASE 2: PROPOSE (read-only)
-  Suggest target structure · Map files to destinations · Surface conflict options
+  Choose or define target folder structure (template, auto-suggest, or custom)
                           ↓
 PHASE 3: GENERATE (writes 4 files — 1st approval)
   manifest.txt    — complete audit trail of every planned move
@@ -101,9 +101,10 @@ PHASE 4: EXECUTE (2nd approval)
 
 Built-in templates in `templates/`:
 
-- `structure_personal.txt` — Documents, Media, Financial, Projects, Archives
-- `structure_business.txt` — Clients, Contracts, Invoices, Reports, Marketing
-- `structure_minimal.txt` — Files, Media, Archive
+- `structure_personal.txt` — Personal, Home, Financial, Professional, Media, Projects, Archives
+- `structure_business.txt` — Clients, Projects, Admin, Resources, Marketing, Assets, Archive
+- `structure_minimal.txt` — Documents, Media, Projects, Downloads, Archives
+- `structure_developer.txt` — Projects, Reference, Media, Downloads, Config, Data, Archives
 
 ### Environment Variables
 
@@ -118,9 +119,9 @@ Built-in templates in `templates/`:
 
 | Situation | Behavior |
 |-----------|----------|
-| Identical content (same SHA-256 hash) | One copy kept, duplicate logged in manifest |
-| Same name, different content | Both kept; second gets `_from_[source]` suffix |
-| Destination already exists | Incoming file skipped, flagged in manifest for manual review |
+| Two source files map to the same destination path | Second file marked `CONFLICT` in manifest and skipped |
+| Identical content across sources (same SHA-256) | Both appear in analysis report; each is still planned for its destination |
+| Destination file already exists at target | Skipped by execute script with a log entry |
 
 The tool never silently overwrites a file.
 
@@ -150,6 +151,7 @@ file_folder_cleanup_util/
 ├── LICENSE
 ├── CONTRIBUTING.md
 ├── CLAUDE.md                 # Claude Code instructions
+├── cleanup.sh                # Main entry point (orchestrates all 4 phases)
 ├── src/
 │   ├── utils.sh              # Shared utilities, validation, logging
 │   ├── analyze.sh            # Phase 1: read-only scan
@@ -159,7 +161,14 @@ file_folder_cleanup_util/
 ├── templates/
 │   ├── structure_personal.txt
 │   ├── structure_business.txt
-│   └── structure_minimal.txt
+│   ├── structure_minimal.txt
+│   └── structure_developer.txt
+├── tests/
+│   ├── run_tests.sh
+│   ├── test_utils.bats
+│   └── test_phases.bats
+├── .github/
+│   └── workflows/test.yml
 └── docs/
     └── index.html            # GitHub Pages site
 ```

@@ -120,6 +120,11 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
+@test "propose: developer template loads without error" {
+    run "$BASH4" "${PROJECT_DIR}/src/propose.sh" "$BATS_TEST_TMPDIR" --template developer
+    [ "$status" -eq 0 ]
+}
+
 @test "propose: invalid template exits non-zero" {
     run "$BASH4" "${PROJECT_DIR}/src/propose.sh" "$BATS_TEST_TMPDIR" --template nonexistent_xyz
     [ "$status" -ne 0 ]

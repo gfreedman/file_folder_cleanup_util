@@ -34,7 +34,7 @@ OPTIONS:
     --target <dir>       Target directory for consolidated files
                          Example: --target ~/Documents
 
-    --template <name>    Use a structure template (personal, business, minimal)
+    --template <name>    Use a structure template (personal, business, minimal, developer)
                          Example: --template personal
 
     --phase <phase>      Run only a specific phase
@@ -42,7 +42,7 @@ OPTIONS:
                          Example: --phase analyze
 
     --output <dir>       Directory for output files (default: current directory)
-                         Example: --output ~/Documents
+                         Example: --output ~/tmp-cleanup
 
     --dry-run            Preview changes without making them (default)
 
