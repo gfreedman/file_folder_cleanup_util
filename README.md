@@ -1,5 +1,7 @@
 # File Folder Cleanup Utility
 
+**[gfreedman.github.io/file_folder_cleanup_util](https://gfreedman.github.io/file_folder_cleanup_util/)**
+
 A safe, interactive tool for consolidating and reorganizing files across multiple folders. Designed to work with **Claude Code** to provide an intelligent, conversational approach to file organization.
 
 ## Philosophy

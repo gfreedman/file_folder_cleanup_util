@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Folder Cleanup Utility — Safe, Reversible File Reorganization for macOS</title>
+  <meta name="description" content="Consolidate Desktop, Downloads, and more into a clean, organized structure — with full backup and one-command undo. No bash experience required.">
+  <style>
+    /* ── RESET ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── TOKENS ──────────────────────────────────────────── */
+    :root {
+      /* colors */
+      --bg:          #f9f8f4;
+      --bg-2:        #efede7;
+      --bg-3:        #e8e6df;
+      --text:        #131314;
+      --text-body:   #4a4843;
+      --text-muted:  #7a7770;
+      --accent:      #d97757;
+      --accent-dim:  #f0ddd5;
+      --border:      #dedad2;
+      --green:       #1d7a45;
+      --green-bg:    #e6f2eb;
+      --green-bright:#22c55e;
+      --term-bg:     #0d1117;
+      --term-bar:    #1a1f27;
+      /* radii */
+      --r:     8px;
+      --r-sm:  6px;
+      --r-xs:  4px;
+      /* spacing scale */
+      --sp-1:  4px;
+      --sp-2:  8px;
+      --sp-3:  12px;
+      --sp-4:  16px;
+      --sp-5:  20px;
+      --sp-6:  24px;
+      --sp-8:  32px;
+      --sp-10: 40px;
+      --sp-12: 48px;
+      --sp-16: 64px;
+      /* layout */
+      --max-w: 780px;
+    }
+
+    /* ── MOTION ──────────────────────────────────────────── */
+    @media (prefers-reduced-motion: no-preference) {
+      html { scroll-behavior: smooth; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+
+    /* ── BASE ────────────────────────────────────────────── */
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+    a { color: var(--accent); }
+    p { color: var(--text-body); margin-bottom: var(--sp-3); }
+    p:last-child { margin-bottom: 0; }
+    strong { color: inherit; }
+
+    /* ── SKIP LINK ───────────────────────────────────────── */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 0;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      padding: var(--sp-2) var(--sp-4);
+      z-index: 999;
+      text-decoration: none;
+      border-radius: 0 0 var(--r) 0;
+    }
+    .skip-link:focus { top: 0; }
+
+    /* ── NAV ─────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(249,248,244,0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 clamp(16px, 4vw, 48px);
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-6);
+    }
+    .nav-brand {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .nav-brand span { color: var(--accent); }
+    .nav-links {
+      display: flex;
+      gap: var(--sp-5);
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-body);
+      text-decoration: none;
+      transition: color .12s;
+      position: relative;
+      padding-bottom: 2px;
+    }
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px;
+      transform: scaleX(0);
+      transition: transform .15s;
+    }
+    .nav-links a:hover,
+    .nav-links a.active { color: var(--accent); }
+    .nav-links a.active::after { transform: scaleX(1); }
+
+    /* hamburger */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: var(--sp-1);
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+    .hamburger span {
+      display: block;
+      height: 2px;
+      background: var(--text-body);
+      border-radius: 2px;
+      transition: transform .2s, opacity .15s;
+    }
+    .hamburger[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+    .hamburger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    @media (max-width: 560px) {
+      .hamburger { display: flex; }
+      .nav-links {
+        display: none;
+        position: absolute;
+        top: 52px;
+        left: 0; right: 0;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        flex-direction: column;
+        gap: 0;
+        padding: 0 clamp(16px, 4vw, 48px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      }
+      .nav-links.open { display: flex; }
+      .nav-links li { border-bottom: 1px solid var(--border); }
+      .nav-links li:last-child { border-bottom: none; }
+      .nav-links a {
+        display: block;
+        padding: 13px 0;
+        font-size: 14px;
+      }
+      .nav-links a::after { display: none; }
+    }
+
+    /* ── LAYOUT ──────────────────────────────────────────── */
+    .container {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 clamp(16px, 4vw, 48px);
+    }
+    section { padding: var(--sp-16) 0; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    /* ── TYPOGRAPHY ──────────────────────────────────────── */
+    h1 {
+      font-size: clamp(32px, 6vw, 52px);
+      font-weight: 800;
+      letter-spacing: clamp(-0.5px, -0.04em, -2px);
+      line-height: 1.08;
+    }
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: var(--sp-5);
+    }
+    h3 {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: var(--sp-4);
+    }
+    code {
+      font-family: "SF Mono", ui-monospace, Menlo, monospace;
+      font-size: 12.5px;
+      background: var(--bg-3);
+      padding: 1px 6px;
+      border-radius: var(--r-xs);
+      color: var(--text);
+    }
+
+    /* ── HERO ────────────────────────────────────────────── */
+    .hero { padding: 72px 0 var(--sp-16); }
+    .hero-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: var(--sp-4);
+    }
+    .hero h1 { margin-bottom: var(--sp-5); }
+    .hero-sub {
+      font-size: 18px;
+      color: var(--text-body);
+      line-height: 1.55;
+      max-width: 560px;
+      margin-bottom: var(--sp-3);
+    }
+    .hero-note {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: var(--sp-8);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--green-bg);
+      color: var(--green);
+    }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-2);
+      margin-bottom: var(--sp-8);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px var(--sp-5);
+      border-radius: var(--r);
+      text-decoration: none;
+      transition: opacity .12s;
+    }
+    .btn:hover { opacity: 0.84; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost {
+      background: var(--bg-3);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ── TESTIMONIAL ─────────────────────────────────────── */
+    .testimonial-wrap {
+      background: var(--bg-2);
+      border-radius: var(--r);
+      padding: var(--sp-8) var(--sp-8);
+    }
+    .testimonial-wrap blockquote {
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--text-body);
+      font-style: italic;
+      margin-bottom: var(--sp-4);
+      position: relative;
+      padding-left: var(--sp-5);
+    }
+    .testimonial-wrap blockquote::before {
+      content: '"';
+      position: absolute;
+      left: 0;
+      top: -4px;
+      font-size: 28px;
+      line-height: 1;
+      color: var(--accent);
+      font-style: normal;
+      font-weight: 800;
+    }
+    .testimonial-wrap figcaption {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding-left: var(--sp-5);
+    }
+    .origin-note {
+      margin-top: var(--sp-5);
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── SAFETY / TRUST BAR ──────────────────────────────── */
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin-bottom: var(--sp-6);
+    }
+    @media (max-width: 560px) {
+      .trust-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .trust-card {
+      background: var(--bg-2);
+      padding: var(--sp-4);
+      text-align: center;
+    }
+    .trust-card:first-child { border-radius: var(--r) 0 0 var(--r); }
+    .trust-card:last-child  { border-radius: 0 var(--r) var(--r) 0; }
+    @media (max-width: 560px) {
+      .trust-card:first-child  { border-radius: var(--r) 0 0 0; }
+      .trust-card:nth-child(2) { border-radius: 0 var(--r) 0 0; }
+      .trust-card:nth-child(3) { border-radius: 0 0 0 var(--r); }
+      .trust-card:last-child   { border-radius: 0 0 var(--r) 0; }
+    }
+    .trust-icon {
+      font-size: 22px;
+      line-height: 1;
+      margin-bottom: var(--sp-2);
+    }
+    .trust-num {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: var(--sp-1);
+    }
+    .trust-num.zero  { color: var(--green); }
+    .trust-num.one   { color: var(--accent); }
+    .trust-phase {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: var(--sp-2);
+    }
+    .trust-label {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ── PIPELINE ────────────────────────────────────────── */
+    .pipeline { display: flex; flex-direction: column; gap: 2px; }
+    .phase {
+      background: var(--bg-2);
+      border-radius: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 64px 1fr;
+    }
+    .phase:first-child { border-radius: var(--r) var(--r) 0 0; }
+    .phase:last-child  { border-radius: 0 0 var(--r) var(--r); }
+    .phase-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent);
+      background: var(--accent-dim);
+      letter-spacing: -1px;
+    }
+    .phase-body { padding: 18px 22px; }
+    .phase-label {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--sp-2);
+      margin-bottom: var(--sp-2);
+    }
+    .phase-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    .badge-safe   { background: var(--green-bg); color: var(--green); }
+    .badge-write  { background: #fef3c7; color: #92400e; }
+    .badge-action { background: #fee2e2; color: #991b1b; }
+    .phase-items {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .phase-item {
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: baseline;
+      gap: var(--sp-2);
+    }
+    .phase-item::before { content: "→"; color: var(--accent); flex-shrink: 0; }
+
+    /* ── TERMINAL ────────────────────────────────────────── */
+    .terminal {
+      background: var(--term-bg);
+      border-radius: var(--r);
+      overflow: hidden;
+      position: relative;
+    }
+    .term-bar {
+      background: var(--term-bar);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+    .term-title {
+      font-size: 12px;
+      color: #6b7280;
+      margin-left: var(--sp-2);
+      font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    }
+    .term-body {
+      padding: 18px 20px;
+      font-family: "SF Mono", ui-monospace, Menlo, monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    .t-prompt { color: #6b7280; }
+    .t-cmd    { color: #e2e8f0; }
+    .t-out    { color: var(--green-bright); }
+    .t-warn   { color: #fbbf24; }
+    .t-muted  { color: #4b5563; }
+    .t-accent { color: #60a5fa; }
+    .t-blank  { display: block; height: 6px; }
+
+    /* copy button — persistent at low opacity, full on hover/focus */
+    .copy-btn {
+      position: absolute;
+      top: 44px;
+      right: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #9ca3af;
+      font-size: 11px;
+      font-family: "SF Mono", ui-monospace, Menlo, monospace;
+      padding: 3px 10px;
+      border-radius: var(--r-xs);
+      cursor: pointer;
+      opacity: 0.38;
+      transition: opacity .15s, background .15s, color .15s, border-color .15s;
+    }
+    .copy-btn:hover,
+    .copy-btn:focus-visible {
+      opacity: 1;
+      background: rgba(255,255,255,0.16);
+      outline: none;
+    }
+    .copy-btn.copied { color: var(--green-bright); border-color: var(--green-bright); opacity: 1; }
+
+    /* ── STEP LIST ───────────────────────────────────────── */
+    .steps { display: flex; flex-direction: column; gap: 2px; }
+    .step {
+      background: var(--bg-2);
+      padding: var(--sp-5) var(--sp-6);
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: var(--sp-4);
+      align-items: start;
+    }
+    .step:first-child { border-radius: var(--r) var(--r) 0 0; }
+    .step:last-child  { border-radius: 0 0 var(--r) var(--r); }
+    .step-n {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .step-desc { font-size: 14px; color: var(--text-body); margin: 0; }
+
+    /* ── PANEL GROUP ─────────────────────────────────────── */
+    .panel-group { display: flex; flex-direction: column; gap: 2px; }
+    .panel {
+      background: var(--bg-2);
+      padding: var(--sp-5) var(--sp-6);
+    }
+    .panel:first-child { border-radius: var(--r) var(--r) 0 0; }
+    .panel:last-child  { border-radius: 0 0 var(--r) var(--r); }
+    .panel:only-child  { border-radius: var(--r); }
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: var(--sp-2);
+    }
+    .panel p { font-size: 14px; margin-bottom: 0; }
+    .panel .terminal { margin: var(--sp-4) 0 0; }
+
+    /* ── CALLOUT ─────────────────────────────────────────── */
+    .callout {
+      background: var(--green-bg);
+      border-left: 3px solid var(--green);
+      border-radius: 0 var(--r) var(--r) 0;
+      padding: var(--sp-3) var(--sp-4);
+      margin: var(--sp-5) 0;
+      display: flex;
+      gap: var(--sp-3);
+      align-items: baseline;
+    }
+    .callout-icon { flex-shrink: 0; font-style: normal; }
+    .callout p { color: #166534; font-size: 14px; margin: 0; }
+    .callout strong { color: var(--green); }
+    .callout-warn {
+      background: #fff7ed;
+      border-left-color: var(--accent);
+    }
+    .callout-warn p { color: #7c2d12; }
+    .callout-warn strong { color: var(--accent); }
+    .callout-warn .callout-icon { color: var(--accent); }
+
+    /* ── TABLE ───────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--r);
+      margin-top: var(--sp-5);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--bg-2);
+      font-size: 13.5px;
+    }
+    th {
+      text-align: left;
+      padding: var(--sp-3) var(--sp-4);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      background: var(--bg-3);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: var(--sp-3) var(--sp-4);
+      border-bottom: 1px solid var(--border);
+      color: var(--text-body);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── FAQ ─────────────────────────────────────────────── */
+    .faq { display: flex; flex-direction: column; gap: 2px; }
+    details { background: var(--bg-2); }
+    details:first-child { border-radius: var(--r) var(--r) 0 0; }
+    details:last-child  { border-radius: 0 0 var(--r) var(--r); }
+    details[open] { background: var(--bg); border: 1px solid var(--border); }
+    summary {
+      padding: 18px 22px;
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--sp-4);
+      color: var(--text);
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    summary::after {
+      content: "+";
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    details[open] summary::after { content: "−"; }
+    .faq-body {
+      padding: 0 22px 18px;
+      font-size: 14px;
+      color: var(--text-body);
+    }
+    .faq-body p { margin-bottom: 10px; }
+    .faq-body p:last-child { margin-bottom: 0; }
+    .faq-body code { font-size: 12px; }
+
+    /* ── TEMPLATE GRID ───────────────────────────────────── */
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-top: var(--sp-5);
+    }
+    @media (max-width: 560px) {
+      .template-grid { grid-template-columns: 1fr; }
+    }
+    .template-card { background: var(--bg-2); padding: var(--sp-5); }
+    .template-card:first-child { border-radius: var(--r) 0 0 var(--r); }
+    .template-card:last-child  { border-radius: 0 var(--r) var(--r) 0; }
+    @media (max-width: 560px) {
+      .template-card { border-radius: 0; }
+      .template-card:first-child { border-radius: var(--r) var(--r) 0 0; }
+      .template-card:last-child  { border-radius: 0 0 var(--r) var(--r); }
+    }
+    .template-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: var(--sp-2);
+    }
+    .template-tree {
+      font-family: "SF Mono", ui-monospace, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+    /* hl must pass WCAG AA against bg-2 (#efede7) — use full --text */
+    .template-tree .hl { color: var(--text); font-weight: 600; }
+
+    /* ── CONFLICT ITEMS (unified with panel system) ───────── */
+    .conflict-group { display: flex; flex-direction: column; gap: 2px; margin-top: var(--sp-5); }
+    .conflict-item {
+      background: var(--bg-2);
+      padding: var(--sp-4) 22px;
+      display: grid;
+      grid-template-columns: 148px 1fr;
+      gap: var(--sp-4);
+      align-items: start;
+    }
+    .conflict-item:first-child { border-radius: var(--r) var(--r) 0 0; }
+    .conflict-item:last-child  { border-radius: 0 0 var(--r) var(--r); }
+    @media (max-width: 560px) {
+      .conflict-item { grid-template-columns: 1fr; gap: var(--sp-1); }
+    }
+    .conflict-type {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .conflict-sub {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 2px;
+    }
+    .conflict-action { font-size: 13.5px; color: var(--text-body); }
+
+    /* ── FOOTER ──────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      margin-top: var(--sp-8);
+      padding: var(--sp-8) 0;
+    }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--sp-3);
+    }
+    .footer-inner p { font-size: 13px; color: var(--text-muted); margin: 0; }
+    .footer-links { display: flex; gap: var(--sp-5); }
+    .footer-links a { font-size: 13px; color: var(--text-muted); text-decoration: none; transition: color .12s; }
+    .footer-links a:hover { color: var(--accent); }
+
+    /* ── UTILS ───────────────────────────────────────────── */
+    .mt-4  { margin-top: var(--sp-4); }
+    .mt-5  { margin-top: var(--sp-5); }
+    .mt-6  { margin-top: var(--sp-6); }
+    .mt-8  { margin-top: var(--sp-8); }
+  </style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<!-- ── NAV ──────────────────────────────────────────────── -->
+<nav aria-label="Primary">
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">File Folder <span>Cleanup</span></a>
+    <button
+      class="hamburger"
+      id="hamburger"
+      aria-label="Toggle navigation"
+      aria-expanded="false"
+      aria-controls="nav-links"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <ul class="nav-links" id="nav-links" role="list">
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#get-started">Get started</a></li>
+      <li><a href="#undo">Undo</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="https://github.com/gfreedman/file_folder_cleanup_util">GitHub ↗</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="main-content">
+
+<!-- ── HERO ─────────────────────────────────────────────── -->
+<section class="hero" aria-labelledby="hero-heading">
+  <div class="container">
+    <p class="hero-eyebrow">macOS · Works with Claude Code</p>
+    <h1 id="hero-heading">Your files are<br>scattered.<br>This fixes that.</h1>
+    <p class="hero-sub">
+      Consolidate Desktop, Downloads, and any other folders into a clean,
+      organized structure, with a full backup and one-command undo before
+      a single file moves.
+    </p>
+    <p class="hero-note">No bash experience required. Claude Code guides you through every step.</p>
+    <div class="chip-row" role="list" aria-label="Key guarantees">
+      <span class="chip" role="listitem">✓ Preview everything before it moves</span>
+      <span class="chip" role="listitem">✓ One command to undo completely</span>
+      <span class="chip" role="listitem">✓ Only 2 approvals needed, total</span>
+      <span class="chip" role="listitem">✓ Full backup created first</span>
+    </div>
+    <div class="btn-row">
+      <a href="#get-started" class="btn btn-primary">Get started</a>
+      <a href="https://github.com/gfreedman/file_folder_cleanup_util" class="btn btn-ghost">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── ORIGIN ──────────────────────────────────────────────── -->
+<section aria-label="Why this exists">
+  <div class="container">
+    <h3>Why this exists</h3>
+    <figure class="testimonial-wrap">
+      <blockquote>
+        My MacBook had two years of accumulated chaos: files dumped everywhere, nothing
+        where I expected it to be. I built this tool for myself,
+        ran it on my own machine, and the result was immediate: a genuine sense of
+        peace every time I open my Mac now.
+      </blockquote>
+      <figcaption>Geoff Freedman, creator</figcaption>
+    </figure>
+    <p class="origin-note">
+      No user quotes yet. This tool is new. If you try it and it works for you,
+      <a href="https://github.com/gfreedman/file_folder_cleanup_util/issues">open an issue</a>
+      and tell us what happened. The jobs product managers are most often hiring this for:
+      cleaning up before a new role, before a team demo, or just reclaiming the mental
+      overhead of a Desktop that long ago stopped being useful.
+    </p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── SAFETY / TRUST ────────────────────────────────────── -->
+<section id="safety" aria-labelledby="safety-heading">
+  <div class="container">
+    <h3>Control</h3>
+    <h2 id="safety-heading">You're in control at every step</h2>
+    <p>
+      The tool runs in four phases. The first two are completely read-only.
+      Nothing is written to disk until you give explicit approval. Twice.
+    </p>
+
+    <div class="trust-grid mt-6">
+      <div class="trust-card">
+        <div class="trust-icon" aria-hidden="true">🔍</div>
+        <div class="trust-phase">Analyze</div>
+        <div class="trust-num zero">0</div>
+        <div class="trust-label">prompts<br>read-only scan</div>
+      </div>
+      <div class="trust-card">
+        <div class="trust-icon" aria-hidden="true">📋</div>
+        <div class="trust-phase">Propose</div>
+        <div class="trust-num zero">0</div>
+        <div class="trust-label">prompts<br>read-only plan</div>
+      </div>
+      <div class="trust-card">
+        <div class="trust-icon" aria-hidden="true">📄</div>
+        <div class="trust-phase">Generate</div>
+        <div class="trust-num one">1</div>
+        <div class="trust-label">prompt<br>writes scripts &amp; backup</div>
+      </div>
+      <div class="trust-card">
+        <div class="trust-icon" aria-hidden="true">▶</div>
+        <div class="trust-phase">Execute</div>
+        <div class="trust-num one">1</div>
+        <div class="trust-label">prompt<br>runs migration</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-icon" aria-hidden="true">✓</span>
+      <p><strong>Changed your mind?</strong> Before any file moves, two independent recovery paths are created: a reversal script that puts every file back, and a full <code>.tar.gz</code> backup. See <a href="#undo">Undo options ↓</a></p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── HOW IT WORKS ──────────────────────────────────────── -->
+<section id="how-it-works" aria-labelledby="how-heading">
+  <div class="container">
+    <h3>Overview</h3>
+    <h2 id="how-heading">Four phases, two permissions</h2>
+    <p>
+      Each phase builds on the last. You can stop at any point before Execute
+      and nothing will have changed on your filesystem.
+    </p>
+
+    <div class="pipeline mt-6">
+      <div class="phase">
+        <div class="phase-num" aria-hidden="true">1</div>
+        <div class="phase-body">
+          <div class="phase-label">
+            <span class="phase-name">Analyze</span>
+            <span class="badge badge-safe">Read-only</span>
+          </div>
+          <div class="phase-items">
+            <span class="phase-item">Inventory every file in your source folders</span>
+            <span class="phase-item">Detect duplicates via SHA-256 checksums</span>
+            <span class="phase-item">Flag large files (>100 MB by default)</span>
+            <span class="phase-item">Identify filename conflicts across sources</span>
+          </div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-num" aria-hidden="true">2</div>
+        <div class="phase-body">
+          <div class="phase-label">
+            <span class="phase-name">Propose</span>
+            <span class="badge badge-safe">Read-only</span>
+          </div>
+          <div class="phase-items">
+            <span class="phase-item">Choose a template: Personal, Business, or Minimal</span>
+            <span class="phase-item">Map every source file to its new destination</span>
+            <span class="phase-item">Present options for conflicts and duplicates</span>
+          </div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-num" aria-hidden="true">3</div>
+        <div class="phase-body">
+          <div class="phase-label">
+            <span class="phase-name">Generate</span>
+            <span class="badge badge-write">1st prompt</span>
+          </div>
+          <p class="phase-item" style="margin-bottom: var(--sp-2);">Writes four timestamped files to your output directory:</p>
+          <div class="phase-items">
+            <span class="phase-item"><code>manifest.txt</code> — full audit trail of every planned move</span>
+            <span class="phase-item"><code>execute.sh</code> — the migration script</span>
+            <span class="phase-item"><code>reversal.sh</code> — one-command undo</span>
+            <span class="phase-item"><code>backup.tar.gz</code> — complete backup of all source files</span>
+          </div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-num" aria-hidden="true">4</div>
+        <div class="phase-body">
+          <div class="phase-label">
+            <span class="phase-name">Execute</span>
+            <span class="badge badge-action">2nd prompt</span>
+          </div>
+          <div class="phase-items">
+            <span class="phase-item">Dry-run first: you see exactly what will happen</span>
+            <span class="phase-item">Files only move on your explicit confirmation</span>
+            <span class="phase-item">Verifies file counts match before and after</span>
+            <span class="phase-item">Removes empty source directories when done</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── GET STARTED ───────────────────────────────────────── -->
+<section id="get-started" aria-labelledby="start-heading">
+  <div class="container">
+    <h3>Quickstart</h3>
+    <h2 id="start-heading">Set up in under 5 minutes</h2>
+
+    <p>
+      One prerequisite: <strong>Bash 4+</strong>. macOS ships with Bash 3.2,
+      which is too old. Install the current version in about 30 seconds:
+    </p>
+
+    <div class="terminal mt-5" id="term-prereq">
+      <div class="term-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="term-title">Terminal — one-time setup</span>
+      </div>
+      <button
+        class="copy-btn"
+        aria-label="Copy prerequisite commands to clipboard"
+        data-target="term-prereq-text"
+      >copy</button>
+      <div class="term-body" id="term-prereq-text">
+        <span class="t-muted"># Check your current version</span><br>
+        <span class="t-prompt">$ </span><span class="t-cmd">bash --version | head -1</span><br>
+        <span class="t-warn">GNU bash, version 3.2.57(1)-release  ← too old</span><br>
+        <span class="t-blank"></span>
+        <span class="t-muted"># Install Bash 5 via Homebrew (~30 seconds)</span><br>
+        <span class="t-prompt">$ </span><span class="t-cmd">brew install bash</span><br>
+        <span class="t-out">✓ bash 5.2.37 installed</span>
+      </div>
+    </div>
+
+    <div class="mt-8">
+      <h3>With Claude Code (recommended)</h3>
+    </div>
+
+    <div class="steps mt-4">
+      <div class="step">
+        <div class="step-n" aria-hidden="true">1</div>
+        <div class="step-body">
+          <div class="step-title">Clone the repo</div>
+          <p class="step-desc"><code>git clone https://github.com/gfreedman/file_folder_cleanup_util.git</code></p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n" aria-hidden="true">2</div>
+        <div class="step-body">
+          <div class="step-title">Open Claude Code in the cloned folder</div>
+          <p class="step-desc">Claude Code reads the built-in <code>CLAUDE.md</code> and knows exactly how to run each phase. No command memorization needed.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n" aria-hidden="true">3</div>
+        <div class="step-body">
+          <div class="step-title">Describe what you want to consolidate</div>
+          <p class="step-desc">Just tell Claude which folders to pull from and where to move things. Plain language is fine.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n" aria-hidden="true">4</div>
+        <div class="step-body">
+          <div class="step-title">Approve twice. You're done.</div>
+          <p class="step-desc">Once when the scripts and backup are generated. Once when the migration runs. Nothing else is required of you.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="terminal mt-6" id="term-claude">
+      <div class="term-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="term-title">Claude Code — example session</span>
+      </div>
+      <div class="term-body">
+        <span class="t-muted"># Just describe the problem in plain language</span><br>
+        <span class="t-prompt">You: </span><span class="t-cmd">Help me consolidate my Desktop and Downloads into Documents</span><br>
+        <span class="t-blank"></span>
+        <span class="t-accent">Claude: </span><span class="t-out">Scanning ~/Desktop and ~/Downloads…</span><br>
+        <span class="t-out">Found 239 files (1.4 GB) · 7 duplicates · 2 large files</span><br>
+        <span class="t-blank"></span>
+        <span class="t-out">Proposed structure for ~/Documents:</span><br>
+        <span class="t-out">  Media/Images · Media/Audio · Media/Video</span><br>
+        <span class="t-out">  Projects/ · Financial/ · Archives/</span><br>
+        <span class="t-blank"></span>
+        <span class="t-accent">Claude: </span><span class="t-out">Does this look right? I'll generate the scripts next.</span><br>
+        <span class="t-blank"></span>
+        <span class="t-prompt">You: </span><span class="t-cmd">Yes, go ahead</span><br>
+        <span class="t-blank"></span>
+        <span class="t-accent">Claude: </span><span class="t-out">✓ Backup created: backup_2026-04-17.tar.gz</span><br>
+        <span class="t-out">✓ Migration script ready  ✓ Reversal script ready</span><br>
+        <span class="t-out">✓ Dry run: 239 moves, 0 conflicts. Ready to execute?</span><br>
+        <span class="t-blank"></span>
+        <span class="t-prompt">You: </span><span class="t-cmd">Yes</span><br>
+        <span class="t-blank"></span>
+        <span class="t-accent">Claude: </span><span class="t-out">✓ Done. Desktop and Downloads are now empty.</span><br>
+        <span class="t-out">  To undo: bash ~/Documents/reversal_2026-04-17.sh</span>
+      </div>
+    </div>
+
+    <div class="mt-8">
+      <h3>Standalone (no Claude Code)</h3>
+    </div>
+    <p class="mt-4">You can run each phase directly from the terminal if you prefer.</p>
+
+    <div class="terminal mt-5" id="term-standalone">
+      <div class="term-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="term-title">Terminal — standalone usage</span>
+      </div>
+      <button
+        class="copy-btn"
+        aria-label="Copy standalone commands to clipboard"
+        data-target="term-standalone-text"
+      >copy</button>
+      <div class="term-body" id="term-standalone-text">
+        <span class="t-muted"># Phase 1 — scan (read-only)</span><br>
+        <span class="t-prompt">$ </span><span class="t-cmd">bash src/analyze.sh ~/Desktop ~/Downloads</span><br>
+        <span class="t-blank"></span>
+        <span class="t-muted"># Phase 2 — propose a structure (read-only)</span><br>
+        <span class="t-prompt">$ </span><span class="t-cmd">bash src/propose.sh ~/Documents --template personal</span><br>
+        <span class="t-blank"></span>
+        <span class="t-muted"># Phase 3 — generate scripts + backup (1st approval)</span><br>
+        <span class="t-prompt">$ </span><span class="t-cmd">bash src/generate_plan.sh \</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-cmd">--sources ~/Desktop,~/Downloads \</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-cmd">--target ~/Documents \</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-cmd">--output ~/Documents</span><br>
+        <span class="t-blank"></span>
+        <span class="t-muted"># Phase 4 — preview, then execute (2nd approval)</span><br>
+        <span class="t-prompt">$ </span><span class="t-cmd">bash src/execute.sh execute_2026-04-17.sh --dry-run</span><br>
+        <span class="t-prompt">$ </span><span class="t-cmd">bash src/execute.sh execute_2026-04-17.sh --execute</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── UNDO ──────────────────────────────────────────────── -->
+<section id="undo" aria-labelledby="undo-heading">
+  <div class="container">
+    <h3>Safety</h3>
+    <h2 id="undo-heading">Changed your mind? Undo it.</h2>
+
+    <p>
+      Before any files move, Phase 3 creates two independent recovery paths.
+      Use whichever is fastest for your situation.
+    </p>
+
+    <div class="callout">
+      <span class="callout-icon" aria-hidden="true">✓</span>
+      <p><strong>The backup is created first.</strong> The <code>.tar.gz</code> archive exists before <code>execute.sh</code> touches a single file. Even if execution fails halfway through, your originals are safe.</p>
+    </div>
+
+    <div class="panel-group mt-5">
+      <div class="panel">
+        <div class="panel-title">Option A: Reversal script</div>
+        <p>Moves every file back to its exact original path. Generated automatically alongside the migration script.</p>
+        <div class="terminal">
+          <div class="term-bar">
+            <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+            <span class="term-title">Undo with the reversal script</span>
+          </div>
+          <div class="term-body">
+            <span class="t-prompt">$ </span><span class="t-cmd">bash ~/Documents/reversal_2026-04-17.sh</span><br>
+            <span class="t-out">Restoring 239 files…</span><br>
+            <span class="t-out">✓ All files returned to original locations.</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Option B: Backup archive</div>
+        <p>A complete <code>.tar.gz</code> snapshot of your source folders, made before anything moves. Restores everything including file metadata.</p>
+        <div class="terminal">
+          <div class="term-bar">
+            <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+            <span class="term-title">Full restore from backup archive</span>
+          </div>
+          <div class="term-body">
+            <span class="t-prompt">$ </span><span class="t-cmd">tar -xzf ~/Documents/backup_2026-04-17.tar.gz -C /</span><br>
+            <span class="t-out">✓ Complete restore finished.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── TEMPLATES ─────────────────────────────────────────── -->
+<section id="templates" aria-labelledby="templates-heading">
+  <div class="container">
+    <h3>Organization</h3>
+    <h2 id="templates-heading">Choose a structure template</h2>
+    <p>Pick a built-in template or define your own layout during the proposal phase. You can customize any template before committing.</p>
+
+    <div class="template-grid">
+      <div class="template-card">
+        <div class="template-name">Personal</div>
+        <div class="template-tree" aria-label="Personal folder structure">
+          <span class="hl">Documents/</span><br>
+          ├── <span class="hl">Media/</span><br>
+          │&nbsp;&nbsp; ├── Images<br>
+          │&nbsp;&nbsp; ├── Audio<br>
+          │&nbsp;&nbsp; └── Video<br>
+          ├── <span class="hl">Financial/</span><br>
+          ├── <span class="hl">Projects/</span><br>
+          └── Archives/
+        </div>
+      </div>
+      <div class="template-card">
+        <div class="template-name">Business</div>
+        <div class="template-tree" aria-label="Business folder structure">
+          <span class="hl">Documents/</span><br>
+          ├── <span class="hl">Clients/</span><br>
+          ├── <span class="hl">Contracts/</span><br>
+          ├── <span class="hl">Invoices/</span><br>
+          ├── <span class="hl">Reports/</span><br>
+          ├── <span class="hl">Marketing/</span><br>
+          └── Archive/
+        </div>
+      </div>
+      <div class="template-card">
+        <div class="template-name">Minimal</div>
+        <div class="template-tree" aria-label="Minimal folder structure">
+          <span class="hl">Documents/</span><br>
+          ├── <span class="hl">Files/</span><br>
+          ├── <span class="hl">Media/</span><br>
+          └── Archive/
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── CONFLICTS ─────────────────────────────────────────── -->
+<section id="conflicts" aria-labelledby="conflicts-heading">
+  <div class="container">
+    <h3>Conflicts</h3>
+    <h2 id="conflicts-heading">How duplicates and conflicts are handled</h2>
+    <p>The tool never silently overwrites a file. Every conflict is resolved deterministically and logged in the manifest so you have a full record.</p>
+
+    <div class="conflict-group">
+      <div class="conflict-item">
+        <div class="conflict-type">
+          Identical content
+          <span class="conflict-sub">same SHA-256 hash</span>
+        </div>
+        <div class="conflict-action">One copy is kept, the duplicate is logged in the manifest. You're informed, nothing is lost.</div>
+      </div>
+      <div class="conflict-item">
+        <div class="conflict-type">
+          Same name,<br>different content
+        </div>
+        <div class="conflict-action">Both files are kept. The duplicate gets a <code>_from_[source]</code> suffix so you can compare and decide later.</div>
+      </div>
+      <div class="conflict-item">
+        <div class="conflict-type">
+          Destination<br>already exists
+        </div>
+        <div class="conflict-action">The incoming file is skipped and flagged in the manifest for manual review. Never overwritten automatically.</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── CONFIG ────────────────────────────────────────────── -->
+<section id="config" aria-labelledby="config-heading">
+  <div class="container">
+    <h3>Configuration</h3>
+    <h2 id="config-heading">Environment variables</h2>
+    <p>Set any of these before running a script to override the defaults. All are optional. The tool works out of the box without any configuration.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Variable</th>
+            <th scope="col">Default</th>
+            <th scope="col">What it controls</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>CLEANUP_LARGE_FILE_THRESHOLD</code></td>
+            <td><code>104857600</code></td>
+            <td>Flag files larger than this many bytes (default: 100 MB)</td>
+          </tr>
+          <tr>
+            <td><code>CLEANUP_DRY_RUN</code></td>
+            <td><code>1</code></td>
+            <td>Set to <code>0</code> to skip the preview step and execute immediately</td>
+          </tr>
+          <tr>
+            <td><code>CLEANUP_CREATE_BACKUP</code></td>
+            <td><code>1</code></td>
+            <td>Set to <code>0</code> to skip backup creation (not recommended)</td>
+          </tr>
+          <tr>
+            <td><code>CLEANUP_OUTPUT_DIR</code></td>
+            <td>Current directory</td>
+            <td>Where to write the manifest, scripts, and backup archive</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── FAQ ──────────────────────────────────────────────── -->
+<section id="faq" aria-labelledby="faq-heading">
+  <div class="container">
+    <h3>FAQ</h3>
+    <h2 id="faq-heading">Common questions</h2>
+
+    <div class="faq mt-5">
+
+      <details>
+        <summary>Will this delete any of my files?</summary>
+        <div class="faq-body">
+          <p>No. The tool only <em>moves</em> files; it never deletes them. Before any move happens, a full <code>.tar.gz</code> backup of your source folders is created. If anything goes wrong, you have two ways back to exactly where you started: the reversal script and the backup archive.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Can I undo a reorganization after the fact?</summary>
+        <div class="faq-body">
+          <p>Yes. Two recovery paths are generated automatically before any files move:</p>
+          <p><strong>Reversal script:</strong> runs the migration in reverse, moving every file back to its original path:</p>
+          <p><code>bash ~/Documents/reversal_2026-04-17.sh</code></p>
+          <p><strong>Backup archive:</strong> a complete <code>.tar.gz</code> snapshot. Use this for a full restore:</p>
+          <p><code>tar -xzf ~/Documents/backup_2026-04-17.tar.gz -C /</code></p>
+          <p>Both files are timestamped, so you can identify them even if you run the tool multiple times.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Do I need to use Claude Code, or can I run it standalone?</summary>
+        <div class="faq-body">
+          <p>Both work. Claude Code is recommended because it walks you through the four phases conversationally and handles all command arguments for you. No bash knowledge needed. But every script can also be run directly from a terminal. See the <a href="#get-started">standalone usage</a> section above.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why do I need Bash 4+? I'm on macOS.</summary>
+        <div class="faq-body">
+          <p>macOS ships Bash 3.2 (circa 2007) because Apple can't redistribute newer GPL-licensed versions. The scripts use associative arrays (<code>declare -A</code>), which require Bash 4. Running on Bash 3.2 causes an immediate exit with a clear message pointing to <code>brew install bash</code>. The install takes about 30 seconds.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What happens to my symlinks?</summary>
+        <div class="faq-body">
+          <p>Symlinks are skipped. All phases use <code>find -type f</code>, which matches only regular files. If you have important symlinks in your source directories, move them manually after the migration completes.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Does this work on Linux?</summary>
+        <div class="faq-body">
+          <p>macOS only, currently. The scripts depend on BSD versions of <code>stat</code>, <code>shasum</code>, and <code>find</code> that ship with macOS. GNU coreutils on Linux use different flag syntax.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Do I need admin or sudo access?</summary>
+        <div class="faq-body">
+          <p>No. The tool operates only within your home directory and uses only the permissions your user account already has. It never requests elevated privileges.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What if two folders have files with the same name?</summary>
+        <div class="faq-body">
+          <p><strong>Identical content</strong> (same SHA-256 hash): one copy is kept, the duplicate is logged in the manifest.</p>
+          <p><strong>Same name, different content</strong>: both files are kept. The second gets a <code>_from_[sourcefolder]</code> suffix so you can compare them manually.</p>
+          <p><strong>Destination already exists</strong>: the incoming file is skipped and flagged in the manifest for you to handle manually. Never silently overwritten.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What exactly gets written during the Generate phase?</summary>
+        <div class="faq-body">
+          <p>Four timestamped files are written to your output directory (configurable via <code>CLEANUP_OUTPUT_DIR</code>):</p>
+          <p><code>manifest_YYYY-MM-DD.txt</code> — every planned file move, in order</p>
+          <p><code>execute_YYYY-MM-DD.sh</code> — the migration script</p>
+          <p><code>reversal_YYYY-MM-DD.sh</code> — the undo script</p>
+          <p><code>backup_YYYY-MM-DD.tar.gz</code> — a full backup of your source folders</p>
+          <p>Nothing outside this output directory is touched until you explicitly run the execute script.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>I have thousands of files. Will this be slow?</summary>
+        <div class="faq-body">
+          <p>The Analysis phase is the most time-intensive because it computes SHA-256 checksums for every file to detect true duplicates. For typical home directories (a few thousand files under a few gigabytes), this takes seconds to a minute. Very large libraries (tens of thousands of files, or multi-gigabyte raw photo collections) may take longer. Progress is shown as it runs.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Can I reorganize files already in my target folder?</summary>
+        <div class="faq-body">
+          <p>Yes, but review the proposed structure carefully first. If you include the target folder as a source, the tool will analyze and move its existing contents too. The dry-run output in Phase 4 will show you every planned move before anything happens.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How do I report a bug or request a feature?</summary>
+        <div class="faq-body">
+          <p>Open an issue on <a href="https://github.com/gfreedman/file_folder_cleanup_util/issues">GitHub</a>. Please include your macOS version, Bash version (<code>bash --version</code>), and the output from the failing script.</p>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ── LIMITATIONS ───────────────────────────────────────── -->
+<section id="limitations" aria-labelledby="limits-heading">
+  <div class="container">
+    <h3>Known limitations</h3>
+    <h2 id="limits-heading" class="sr-only">Known limitations</h2>
+
+    <div class="callout callout-warn mt-4">
+      <span class="callout-icon" aria-hidden="true">⚠</span>
+      <p><strong>Symlinks are skipped.</strong> <code>find -type f</code> matches regular files only. Move symlinks manually after migration.</p>
+    </div>
+    <div class="callout callout-warn">
+      <span class="callout-icon" aria-hidden="true">⚠</span>
+      <p><strong>macOS only.</strong> Uses BSD <code>stat</code>, <code>shasum</code>, and <code>find</code> syntax. Not compatible with Linux GNU coreutils.</p>
+    </div>
+    <div class="callout callout-warn">
+      <span class="callout-icon" aria-hidden="true">⚠</span>
+      <p><strong>Bash 4+ required.</strong> macOS ships Bash 3.2. One-time fix: <code>brew install bash</code></p>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<!-- ── FOOTER ────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <p>MIT License · Designed to run through <a href="https://claude.ai/code">Claude Code</a></p>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="https://github.com/gfreedman/file_folder_cleanup_util">GitHub</a>
+        <a href="https://github.com/gfreedman/file_folder_cleanup_util/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/gfreedman/file_folder_cleanup_util/issues">Issues</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+
+<!-- sr-only utility for screen-reader-only headings -->
+<style>
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>
+
+<script>
+  /* ── HAMBURGER ─────────────────────────────────────────── */
+  (function () {
+    const btn = document.getElementById('hamburger');
+    const menu = document.getElementById('nav-links');
+    if (!btn || !menu) return;
+
+    btn.addEventListener('click', function () {
+      const expanded = this.getAttribute('aria-expanded') === 'true';
+      this.setAttribute('aria-expanded', String(!expanded));
+      menu.classList.toggle('open', !expanded);
+    });
+
+    // Close on link click (including external links)
+    menu.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () {
+        btn.setAttribute('aria-expanded', 'false');
+        menu.classList.remove('open');
+      });
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && menu.classList.contains('open')) {
+        btn.setAttribute('aria-expanded', 'false');
+        menu.classList.remove('open');
+        btn.focus();
+      }
+    });
+  }());
+
+  /* ── ACTIVE NAV (IntersectionObserver) ────────────────── */
+  (function () {
+    const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+    if (!navLinks.length || !('IntersectionObserver' in window)) return;
+
+    const sectionIds = Array.from(navLinks).map(function (a) {
+      return a.getAttribute('href').slice(1);
+    });
+
+    const sections = sectionIds
+      .map(function (id) { return document.getElementById(id); })
+      .filter(Boolean);
+
+    const io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        const id = entry.target.id;
+        navLinks.forEach(function (a) {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        });
+      });
+    }, { rootMargin: '-15% 0% -60% 0%', threshold: 0 });
+
+    sections.forEach(function (s) { io.observe(s); });
+  }());
+
+  /* ── COPY BUTTONS ──────────────────────────────────────── */
+  (function () {
+    document.querySelectorAll('.copy-btn[data-target]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const target = document.getElementById(btn.getAttribute('data-target'));
+        if (!target) return;
+        navigator.clipboard.writeText(target.innerText).then(function () {
+          const prev = btn.textContent;
+          btn.textContent = 'copied!';
+          btn.classList.add('copied');
+          btn.setAttribute('aria-label', 'Copied to clipboard');
+          setTimeout(function () {
+            btn.textContent = prev;
+            btn.classList.remove('copied');
+            btn.setAttribute('aria-label', btn.getAttribute('aria-label').replace('Copied', 'Copy'));
+          }, 1800);
+        });
+      });
+    });
+  }());
+</script>
+
+</body>
+</html>
